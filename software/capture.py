@@ -3,54 +3,63 @@ from sys import stdin
 import mvsdk
 from time import sleep
 
-def capture():
-	frameIndex = 0
-	exposure = 20
+class Capture(object):
+	def __init__(self):
+		super(Capture, self).__init__()
 
-	frameBuffer = None
-	images = []
+		self.frameIndex = 0
+		self.exposure = 20
 
-	devices = mvsdk.CameraEnumerateDevice()
+		self.frameBuffer = None
 
-	if len(devices) < 1:
-		print("No camera was found!")
+	def connect(self):
+		devices = mvsdk.CameraEnumerateDevice()
 
-		exit(1)
+		if len(devices) < 1:
+			print("No camera was found!")
 
-	camera = devices[0]
-	print(camera)
+			exit(1)
 
-	handle = 0
+		self.camera = devices[0]
+		print(self.camera)
 
-	try:
-		handle = mvsdk.CameraInit(camera, -1, -1)
-	except mvsdk.CameraException as e:
-		print("camera could not initialize: {} {}".format(e.error_code, e.message) )
+		self.handle = None
 
-		exit(2)
+	def start(self):
+		try:
+			self.handle = mvsdk.CameraInit(self.camera, -1, -1)
+		except mvsdk.CameraException as e:
+			print("camera could not initialize: {} {}".format(e.error_code, e.message) )
 
-	cap = mvsdk.CameraGetCapability(handle)
-	mvsdk.CameraSetIspOutFormat(handle, mvsdk.CAMERA_MEDIA_TYPE_BGR8)
-	mvsdk.CameraSetTriggerMode(handle, 0)
-	mvsdk.CameraSetAeState(handle, 0)
-	mvsdk.CameraSetExposureTime(handle, exposure * 1000)
-	mvsdk.CameraPlay(handle)
+			exit(2)
 
-	frameBufferSize = cap.sResolutionRange.iWidthMax * cap.sResolutionRange.iHeightMax * 3
-	frameBuffer = mvsdk.CameraAlignMalloc(frameBufferSize, 16)
+		self.images = []
+		self.frameIndex = 0
+
+		capture = mvsdk.CameraGetCapability(self.handle)
+		mvsdk.CameraSetIspOutFormat(self.handle, mvsdk.CAMERA_MEDIA_TYPE_BGR8)
+		mvsdk.CameraSetTriggerMode(self.handle, 0)
+		mvsdk.CameraSetAeState(self.handle, 0)
+		mvsdk.CameraSetExposureTime(self.handle, self.exposure * 1000)
+		mvsdk.CameraPlay(self.handle)
+
+		self.frameBufferSize = capture.sResolutionRange.iWidthMax * capture.sResolutionRange.iHeightMax * 3
+		self.frameBuffer = mvsdk.CameraAlignMalloc(self.frameBufferSize, 16)
+
+		mvsdk.CameraSetCallbackFunction(self.handle, self.capture_callback, 0)
 
 	@mvsdk.method(mvsdk.CAMERA_SNAP_PROC)
 	def capture_callback(self, handle, rawData, frameHeads, context):
 		frameHead = frameHeads[0]
-		frameIndex += 1
+		self.frameIndex += 1
 
-		mvsdk.CameraImageProcess(handle, rawData, frameBuffer, frameHead)
+		mvsdk.CameraImageProcess(handle, rawData, self.frameBuffer, frameHead)
 		mvsdk.CameraReleaseImageBuffer(handle, rawData)
 
-		path = 'input/frame-' + str(frameIndex) + '.bmp'
-		images.append(path)
+		path = 'input/frame-' + str(self.frameIndex) + '.bmp'
+		self.images.append(path)
 
-		status = mvsdk.CameraSaveImage(handle, path, frameBuffer, frameHead, mvsdk.FILE_BMP, 1000)
+		status = mvsdk.CameraSaveImage(handle, path, self.frameBuffer, frameHead, mvsdk.FILE_BMP, 1000)
 
 		if status != mvsdk.CAMERA_STATUS_SUCCESS:
 			print("Save image failed. {}".format(status))
@@ -59,13 +68,8 @@ def capture():
 
 		return
 
-	mvsdk.CameraSetCallbackFunction(handle, capture_callback, 0)
+	def stop(self):
+		mvsdk.CameraUnInit(self.handle)
+		mvsdk.CameraAlignFree(self.frameBuffer)
 
-	while True:
-		if stdin.read(1) == 'e':
-			mvsdk.CameraUnInit(handle)
-			mvsdk.CameraAlignFree(frameBuffer)
-
-			return images
-
-		sleep(0.1)
+		return self.images

@@ -1,14 +1,26 @@
 from os import read
-from capture import capture
+from sys import stdin
+from capture import Capture
 from stitch import stitch
 from requests import post
 import cv2
+
+capture = Capture()
+capture.connect()
 
 while True:
 	tag = input('TAG: ')
 	direction = input('R/F: ')
 
-	images = capture()
+	capture.start()
+	images = []
+
+	while True:
+		if stdin.read(1) == 'e':
+			images = capture.stop()
+
+			break
+
 	stitched = stitch(images)
 
 	location = 'https://kalkbreite.com/capture/' + tag + '/' + ('reverse' if direction == 'r' else 'forward')
