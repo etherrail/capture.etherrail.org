@@ -873,7 +873,7 @@ def CameraSelectLutPreset(hCamera, iSel):
 def CameraGetLutPresetSel(hCamera):
 	piSel = c_int()
 	err_code = _sdk.CameraGetLutPresetSel(hCamera, byref(piSel) )
-		SetLastError(err_code)
+	SetLastError(err_code)
 	return piSel.value
 
 def CameraSetCustomLut(hCamera, iChannel, pLut):
