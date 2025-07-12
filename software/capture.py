@@ -39,6 +39,7 @@ def capture():
 	frameBufferSize = cap.sResolutionRange.iWidthMax * cap.sResolutionRange.iHeightMax * 3
 	frameBuffer = mvsdk.CameraAlignMalloc(frameBufferSize, 16)
 
+	@mvsdk.method(mvsdk.CAMERA_SNAP_PROC)
 	def capture_callback(handle, rawData, frameHeads, context):
 		frameHead = frameHeads[0]
 		frameIndex += 1
