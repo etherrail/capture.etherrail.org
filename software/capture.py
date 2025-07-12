@@ -56,6 +56,8 @@ def capture():
 
 			exit(3)
 
+		return
+
 	mvsdk.CameraSetCallbackFunction(handle, capture_callback, 0)
 
 	while True:
