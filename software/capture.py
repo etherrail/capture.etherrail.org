@@ -66,7 +66,7 @@ class Capture(object):
 
 			exit(3)
 
-		return
+		print(path)
 
 	def stop(self):
 		mvsdk.CameraUnInit(self.handle)
