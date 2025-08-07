@@ -20,20 +20,27 @@ def merge_images(images):
 
 		for layer in overlaps:
 			col_index = x - layer.offset_x
-			contrast_column = layer.contrast_map[:, col_index]  # shape: (H,)
-			pixel_column = layer.rotated[:, col_index, :]       # shape: (H, 4) if BGRA
+			contrast_column = layer.contrast_map[:, col_index]  # (H,)
+			pixel_column = layer.rotated[:, col_index, :]       # (H, 4)
 
 			contrast_stack.append(contrast_column)
 			pixel_stack.append(pixel_column)
 
-		# Stack contrast and pixel data
-		contrast_stack = np.stack(contrast_stack, axis=0)  # shape: (L, H)
-		pixel_stack = np.stack(pixel_stack, axis=0)        # shape: (L, H, C)
+		# Stack to shape (L, H) and (L, H, 4)
+		contrast_stack = np.stack(contrast_stack, axis=0).astype(np.float32)  # (L, H)
+		pixel_stack = np.stack(pixel_stack, axis=0).astype(np.float32)        # (L, H, 4)
 
-		# For each y, get the index of max contrast layer
-		best_indices = np.argmax(contrast_stack, axis=0)   # shape: (H,)
+		# Avoid divide-by-zero by adding epsilon
+		weights = contrast_stack + 1e-6  # (L, H)
+		weights_sum = np.sum(weights, axis=0, keepdims=True)  # (1, H)
+		normalized_weights = weights / weights_sum  # (L, H)
 
-		# Assign best pixels to canvas
-		canvas[:, x] = pixel_stack[best_indices, np.arange(output_height)]
+		# Apply weights to pixels
+		# Expand weights to (L, H, 1) to match pixel_stack
+		weighted_pixels = pixel_stack * normalized_weights[:, :, np.newaxis]  # (L, H, 4)
+		blended_column = np.sum(weighted_pixels, axis=0)  # (H, 4)
+
+		# Assign to canvas
+		canvas[:, x] = np.clip(blended_column, 0, 255).astype(np.uint8)
 
 	return canvas

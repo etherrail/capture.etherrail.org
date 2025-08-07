@@ -43,12 +43,9 @@ def stitch(filenames):
 	moved_images = [images[0]]
 
 	for next in images[1:]:
-		start = time()
-
-		print('processing ' + last.file_name)
 		movement = calculate_movement(last, next, coarse_movement_window)
 
-		print('took', time() - start, movement)
+		print(last.file_name, movement, total_movement)
 
 		# ignore images with very minimal movement
 		if movement > 5:
