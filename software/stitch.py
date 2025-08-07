@@ -64,16 +64,3 @@ def stitch(filenames):
 	merged = merge_images(moved_images)
 
 	return merged
-
-"""
-isometric = rotate_image(canvas, 17.7, 0)
-cv2.imwrite("isometric.png", isometric)
-
-M = np.array([
-	[1, 0.22, 0],
-	[0, 1, 0]
-], dtype=np.float32)
-
-sheared_image = cv2.warpAffine(canvas, M, (x, y))
-cv2.imwrite("straight.png", sheared_image)
-"""
