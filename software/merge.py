@@ -15,14 +15,25 @@ def merge_images(images):
 		if x % 100 == 0:
 			print(x, len(overlaps))
 
-		for y in range(0, output_height):
-			max_contrast = -1
+		contrast_stack = []
+		pixel_stack = []
 
-			for layer in overlaps:
-				contrast = layer.contrast_map[y, x - layer.offset_x]
+		for layer in overlaps:
+			col_index = x - layer.offset_x
+			contrast_column = layer.contrast_map[:, col_index]  # shape: (H,)
+			pixel_column = layer.rotated[:, col_index, :]       # shape: (H, 4) if BGRA
 
-				if contrast > max_contrast:
-					canvas[y, x] = layer.rotated[y, x - layer.offset_x]
-					max_contrast = contrast
+			contrast_stack.append(contrast_column)
+			pixel_stack.append(pixel_column)
+
+		# Stack contrast and pixel data
+		contrast_stack = np.stack(contrast_stack, axis=0)  # shape: (L, H)
+		pixel_stack = np.stack(pixel_stack, axis=0)        # shape: (L, H, C)
+
+		# For each y, get the index of max contrast layer
+		best_indices = np.argmax(contrast_stack, axis=0)   # shape: (H,)
+
+		# Assign best pixels to canvas
+		canvas[:, x] = pixel_stack[best_indices, np.arange(output_height)]
 
 	return canvas

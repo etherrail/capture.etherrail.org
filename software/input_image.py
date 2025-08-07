@@ -84,5 +84,3 @@ class InputImage:
 
 		normalized = cv2.normalize(self.contrast_map, None, 0, 255, cv2.NORM_MINMAX)
 		output = np.uint8(normalized)
-
-		cv2.imwrite('contrast' + str(self.index) + '.png', output)
