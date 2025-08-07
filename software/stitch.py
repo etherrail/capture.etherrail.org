@@ -1,3 +1,4 @@
+from time import time
 import cv2
 import os
 import numpy as np
@@ -26,6 +27,7 @@ def stitch(filenames):
 		if image.valid_flash_brightness(75, 5, 80, 255):
 			image.rotate(rotation, cutoff)
 			image.create_edge_mask()
+			image.create_coarse_edge_mask(coarse_movement_window)
 			image.create_contrast_map()
 
 			images.append(image)
@@ -41,9 +43,14 @@ def stitch(filenames):
 	moved_images = [images[0]]
 
 	for next in images[1:]:
-		print('processing ' + last.file_name)
-		movement = calculate_movement(last.edge_mask, next.edge_mask, coarse_movement_window)
+		start = time()
 
+		print('processing ' + last.file_name)
+		movement = calculate_movement(last, next, coarse_movement_window)
+
+		print('took', time() - start, movement)
+
+		# ignore images with very minimal movement
 		if movement > 5:
 			total_movement += movement
 
@@ -55,7 +62,6 @@ def stitch(filenames):
 		last = next
 
 	merged = merge_images(moved_images)
-	# cv2.imwrite("isometric.png", merged)
 
 	return merged
 

@@ -63,8 +63,19 @@ class InputImage:
 			)
 		)
 
-	def create_contrast_map(self):
-		grayscale = cv2.cvtColor(self.rotated, cv2.COLOR_BGRA2GRAY)  # Convert to grayscale
-		laplacian = cv2.Laplacian(grayscale, cv2.CV_64F)  # Compute Laplacian
+	def create_coarse_edge_mask(self, scale):
+		self.coarse_edge_mask = cv2.resize(self.edge_mask, (0, 0), fx=1 / scale, fy=1 / scale)
 
-		self.contrast_map = np.abs(laplacian)  # Absolute values to get contrast
+	def create_contrast_map(self):
+		# Convert to grayscale
+		grayscale = cv2.cvtColor(self.rotated, cv2.COLOR_BGRA2GRAY)
+
+		# Compute Laplacian
+		laplacian = cv2.Laplacian(grayscale, cv2.CV_64F)
+
+  		# Absolute values to get contrast
+		self.full_contrast_map = np.abs(laplacian)
+
+		# blur a bit to break up single pixel highlights
+		# boxblur by 2px (5 field)
+		self.contrast_map = cv2.blur(self.full_contrast_map, (5, 5))

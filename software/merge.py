@@ -12,7 +12,8 @@ def merge_images(images):
 	for x in range(0, output_width):
 		overlaps = [image for image in images if x >= image.offset_x and x < image.offset_x + frame_width]
 
-		print(x, len(overlaps))
+		if x % 100 == 0:
+			print(x, len(overlaps))
 
 		for y in range(0, output_height):
 			max_contrast = -1
