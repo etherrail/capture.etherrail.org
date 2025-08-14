@@ -26,21 +26,29 @@ def merge_images(images):
 			contrast_stack.append(contrast_column)
 			pixel_stack.append(pixel_column)
 
-		# Stack to shape (L, H) and (L, H, 4)
 		contrast_stack = np.stack(contrast_stack, axis=0).astype(np.float32)  # (L, H)
 		pixel_stack = np.stack(pixel_stack, axis=0).astype(np.float32)        # (L, H, 4)
 
-		# Avoid divide-by-zero by adding epsilon
-		weights = contrast_stack + 1e-6  # (L, H)
-		weights_sum = np.sum(weights, axis=0, keepdims=True)  # (1, H)
-		normalized_weights = weights / weights_sum  # (L, H)
+		# For each row, pick the top N contrasts
+		top_n = min(5, len(overlaps))
 
-		# Apply weights to pixels
-		# Expand weights to (L, H, 1) to match pixel_stack
-		weighted_pixels = pixel_stack * normalized_weights[:, :, np.newaxis]  # (L, H, 4)
-		blended_column = np.sum(weighted_pixels, axis=0)  # (H, 4)
+		H = contrast_stack.shape[1]
+		top_indices = np.argsort(-contrast_stack, axis=0)[:top_n, np.arange(H)]  # (top_n, H)
 
-		# Assign to canvas
+		# Gather top N pixels and contrasts
+		top_pixels = np.zeros((top_n, H, 4), dtype=np.float32)
+		top_contrasts = np.zeros((top_n, H), dtype=np.float32)
+		for i in range(H):
+			top_pixels[:, i, :] = pixel_stack[top_indices[:, i], i, :]
+			top_contrasts[:, i] = contrast_stack[top_indices[:, i], i]
+
+		# Normalize weights and blend
+		weights = top_contrasts + 1e-6
+		weights_sum = np.sum(weights, axis=0, keepdims=True)
+		normalized_weights = weights / weights_sum
+		weighted_pixels = top_pixels * normalized_weights[:, :, np.newaxis]
+		blended_column = np.sum(weighted_pixels, axis=0)
+
 		canvas[:, x] = np.clip(blended_column, 0, 255).astype(np.uint8)
 
 	return canvas

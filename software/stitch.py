@@ -24,13 +24,15 @@ def stitch(filenames):
 	for file in filenames:
 		image = InputImage(file)
 
-		if image.valid_flash_brightness(75, 5, 80, 255):
+		if image.valid_flash_brightness(75, 5, 80, 100):
 			image.rotate(rotation, cutoff)
 			image.create_edge_mask()
 			image.create_coarse_edge_mask(coarse_movement_window)
 			image.create_contrast_map()
 
 			images.append(image)
+		else:
+			print('invalid brightness of image: ' + file)
 
 	images = sorted(images, key=lambda input: input.index)
 
