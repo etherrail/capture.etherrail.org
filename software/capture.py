@@ -73,3 +73,16 @@ class Capture(object):
 		mvsdk.CameraAlignFree(self.frameBuffer)
 
 		return self.images
+
+
+if __name__ == '__main__':
+	capture = Capture()
+	capture.connect()
+
+	capture.start()
+
+	while True:
+		if stdin.read(1) == 'e':
+			capture.stop()
+
+		sleep(0.1)
