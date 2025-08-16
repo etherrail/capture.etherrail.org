@@ -7,8 +7,8 @@ import numpy as np
 import time
 
 while True:
-	# tag = input('TAG: ')
-	# direction = input('R/F: ')
+	tag = input('TAG: ')
+	direction = input('R/F: ')
 
 	images = []
 
@@ -22,13 +22,11 @@ while True:
 	print("stitching took", time.time() - start)
 	cv2.imwrite('stitched.png', stitched)
 
-	# location = 'https://kalkbreite.com/capture/' + tag + '/' + ('reverse' if direction == 'r' else 'forward')
+	location = 'https://kalkbreite.com/capture/' + tag + '/' + ('reverse' if direction == 'r' else 'forward')
 
-	# print('posting to ' + location)
+	print('posting to ' + location)
 
-	# success, image = cv2.imencode('.png', stitched)
+	success, image = cv2.imencode('.png', stitched)
 
-	# post(location, data=image.tobytes())
+	post(location, data=image.tobytes())
 	print('posted')
-
-	exit(0)
