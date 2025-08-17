@@ -18,7 +18,7 @@ class Stitcher:
 
 	# size of the coarse window for sobbel checks
 	# the sobbel field is half of this
-	coarse_window = 10
+	coarse_window = 4
 
 	slice = 10000 # target width of a slice (will be a bit bigger)
 	slice_index = 0 # number of current slice
