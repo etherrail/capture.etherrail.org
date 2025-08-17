@@ -6,8 +6,7 @@ from uuid import uuid4
 
 from input_image import InputImage
 from movement import calculate_movement
-from merger import merge_images
-from slice import SliceInput
+from merge import merge_images
 
 class Stitcher:
 	session = str(uuid4())
@@ -57,6 +56,8 @@ class Stitcher:
 
 		self.images.append(image)
 
+		image.apply_focus(self.focus_map)
+
 		print('*', self.total_movement)
 
 		if self.total_movement > self.slice:
@@ -66,21 +67,18 @@ class Stitcher:
 		self.slice_index += 1
 		print('slice', self.slice_index)
 
-		images = [image for image in self.images]
-		pool = []
+		pool = [image for image in self.images]
 		self.images = []
 
-		for image in images:
-			pool.append(SliceInput(image))
-			image.offset_x -= self.slice
+		# for image in pool:
+			# image.offset_x -= self.slice
 
-			if image.offset_x >= image.width():
-				self.images.append(image)
+			# if image.offset_x >= image.width():
+			#	self.images.append(image)
 
-		self.total_movement -= self.slice
-		print('MERGE', self.total_movement, len(images), len(self.images))
+		# self.total_movement -= self.slice
+
+		print('MERGE', self.total_movement, len(pool), len(self.images))
 
 		merged = merge_images(pool, self.focus_map)
-
-		print('WRITE')
 		cv2.imwrite('stitched-' + self.session + '-' + str(self.slice_index) + '.png', merged)
