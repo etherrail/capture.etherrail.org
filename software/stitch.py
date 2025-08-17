@@ -23,7 +23,6 @@ class Stitcher:
 	slice = 10000
 	slice_index = 0
 
-	last_image = None
 	images = []
 	total_movement = 0
 
@@ -32,8 +31,8 @@ class Stitcher:
 		image.create_edge_mask(self.coarse_window)
 		image.create_contrast_map()
 
-		if self.last_image:
-			movement = calculate_movement(self.last_image, image, self.coarse_window)
+		if len(self.images):
+			movement = calculate_movement(self.images[-1], image, self.coarse_window)
 			print(movement, self.total_movement)
 
 			# ignore images with very minimal movement
