@@ -55,5 +55,13 @@ class Stitcher:
 		print('*', self.total_movement)
 
 	def render(self):
+		# merge all images
 		merged = merge_images(self.images)
 		cv2.imwrite('stitched2-' + self.session + '-' + str(self.slice_index) + '.png', merged)
+
+		shift = self.images[-1].offset_x - self.images[0].width()
+
+		for image in self.images:
+			image.offset_x -= shift
+
+		self.images = [image for image in self.images if image.offset_x >= 0]
