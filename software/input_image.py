@@ -50,12 +50,6 @@ class InputImage:
 			)
 		)
 
-	def apply_focus(self, mask):
-		masked = self.rotated.copy()
-		masked[:, :, 3] = mask
-
-		self.focused = masked
-
 	def width(self):
 		(h, w) = self.rotated.shape[:2]
 
