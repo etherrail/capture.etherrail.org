@@ -5,7 +5,7 @@ import mvsdk
 from time import sleep
 import cv2
 import numpy as np
-from software.input_image import InputImage
+from input_image import InputImage
 from stitch import Stitcher
 
 brightness_probe_offset = 25
