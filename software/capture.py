@@ -104,7 +104,7 @@ class Capture(object):
 
 		# prepare file for stitcher, save locally and send next file instruction
 		path = 'input/' + self.session + '/' + str(self.frameIndex) + '.png'
-		# cv2.imwrite(path, frame)
+		cv2.imwrite(path, frame)
 
 		self.stitcher.stdin.write(path + '\n')
 		self.stitcher.stdin.flush()
