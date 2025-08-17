@@ -9,6 +9,34 @@ class InputImage:
 	def __init__(self, buffer):
 		self.source = cv2.cvtColor(buffer, cv2.COLOR_BGR2BGRA)
 
+	# valid flashes are in a range of brigthness values
+	# if the flash fired twice, this value will exceed the limit
+	# if the flash did not fire, it will be below
+	def valid_flash_brightness(self, offset, field, min, max):
+		h, w, _ = self.source.shape
+
+		grayscale = cv2.cvtColor(self.source, cv2.COLOR_BGR2GRAY)
+		brightness = self.brightness(grayscale, offset, offset, field)
+
+		if brightness > min and brightness < max:
+			return True
+
+		# the pantographs sometimes touch the top edge
+		# test the left pixel too, if it is in range, the image is valid
+		brightness = self.brightness(grayscale, offset, h - offset, field)
+
+		if brightness > min and brightness < max:
+			return True
+
+		print('invalid brightness of image: ' + self.file_name + ', brightness: ' + str(brightness))
+
+		return False
+
+	def brightness(self, grayscale, x, y, field):
+		field = grayscale[y-field:y+field, x-field:x+field]
+
+		return np.mean(field)
+
 	def rotate(self, angle, cutoff):
 		(h, w) = self.source.shape[:2]
 		center = (w // 2, h // 2)
@@ -48,6 +76,9 @@ class InputImage:
 				cv2.Sobel(small_gray, cv2.CV_64F, 0, 1, ksize=kernel_size)
 			)
 		)
+
+	def create_coarse_edge_mask(self, scale):
+		self.coarse_edge_mask = cv2.resize(self.edge_mask, (0, 0), fx=1 / scale, fy=1 / scale)
 
 	def create_contrast_map(self):
 		# Split the image into color channels (BGRA assumed)

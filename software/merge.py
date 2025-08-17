@@ -6,17 +6,12 @@ def merge_images(images, top_n=5):
 	output_width = frame_width + images[-1].offset_x
 	output_height = frame_height
 
-	print('create canvas')
-
 	canvas = np.zeros((output_height, output_width, 4), dtype=np.uint8)
 
-	print('cast')
-
+	# Pre-extract rotated images and contrast maps
 	rots = [img.rotated.astype(np.float32) for img in images]
 	contrasts = [img.contrast_map.astype(np.float32) for img in images]
 	offsets = [img.offset_x for img in images]
-
-	print('loop')
 
 	for x in range(output_width):
 		# Determine overlapping images for this column

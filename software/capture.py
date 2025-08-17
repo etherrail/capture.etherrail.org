@@ -2,6 +2,7 @@ from os import mkdir
 import sys
 import tty
 import termios
+from sys import stdin
 import mvsdk
 from time import sleep, time
 import cv2
@@ -10,11 +11,6 @@ from input_image import InputImage
 from stitch import Stitcher
 from uuid import uuid4
 from subprocess import Popen, PIPE
-
-brightness_probe_offset = 25
-brightness_probe_field = 5
-brightness_min = 200
-brightness_max = 247
 
 class Capture(object):
 	session = str(uuid4())
@@ -77,34 +73,9 @@ class Capture(object):
 		mvsdk.CameraImageProcess(handle, rawData, self.frameBuffer, frameHead)
 		mvsdk.CameraReleaseImageBuffer(handle, rawData)
 
-		frame_data = (mvsdk.c_ubyte * frameHead.uBytes).from_address(self.frameBuffer)
-		frame = np.frombuffer(frame_data, dtype=np.uint8)
-		frame = frame.reshape((frameHead.iHeight, frameHead.iWidth, 3))
-
-		grayscale = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-
-		def average_brightness(x, y, field):
-			field = grayscale[y-field:y+field, x-field:x+field]
-
-			return np.mean(field)
-
-		brightness = average_brightness(brightness_probe_offset, brightness_probe_offset, brightness_probe_field)
-
-		if brightness < brightness_min or brightness > brightness_max:
-			# the pantographs sometimes touch the top edge
-			# test the left pixel too, if it is in range, the image is valid
-			brightness = average_brightness(brightness_probe_offset, frameHead.iHeight - brightness_probe_offset, brightness_probe_field)
-
-			if brightness < brightness_min or brightness > brightness_max:
-				print('invalid brightness of image, brightness: ' + str(brightness))
-
-				return False
-
-		self.frameIndex += 1
-
 		# prepare file for stitcher, save locally and send next file instruction
 		path = 'input/' + self.session + '/' + str(self.frameIndex) + '.png'
-		cv2.imwrite(path, frame)
+		mvsdk.CameraSaveImage(handle, path, self.frameBuffer, frameHead, mvsdk.FILE_BMP, 1000)
 
 		self.stitcher.stdin.write(path + '\n')
 		self.stitcher.stdin.flush()

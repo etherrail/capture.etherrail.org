@@ -23,7 +23,8 @@ while True:
 		if file == 'FINISH':
 			exit(0)
 	else:
-		image = cv2.imread(file)
+		image = InputImage(cv2.imread(file))
 		unlink(file)
 
-		stitcher.add(InputImage(image))
+		if image.valid_flash_brightness(25, 5, 200, 247):
+			stitcher.add(image)
