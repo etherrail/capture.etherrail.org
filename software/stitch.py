@@ -71,4 +71,4 @@ class Stitcher:
 		self.images = [image for image in self.images if image.offset_x >= 0]
 		self.total_movement -= shift
 
-		post('https://kalkbreite.com/capture/session/' + session, data=image.tobytes() + '/0/0')
+		post('https://kalkbreite.com/capture/session/' + session + '/0/0', data=image.tobytes())
