@@ -28,3 +28,5 @@ while True:
 
 		if image.valid_flash_brightness(25, 5, 200, 247):
 			stitcher.add(image)
+		else:
+			print('invalid brightness of image: ' + file + ', brightness')

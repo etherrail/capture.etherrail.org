@@ -28,8 +28,6 @@ class InputImage:
 		if brightness > min and brightness < max:
 			return True
 
-		print('invalid brightness of image: ' + self.file_name + ', brightness: ' + str(brightness))
-
 		return False
 
 	def brightness(self, grayscale, x, y, field):
