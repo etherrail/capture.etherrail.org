@@ -50,6 +50,8 @@ class Stitcher:
 
 		self.images.append(image)
 
+		print('*', self.total_movement)
+
 		if self.total_movement > self.slice:
 			self.merge_slice()
 
