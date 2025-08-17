@@ -73,7 +73,6 @@ class Capture(object):
 	@mvsdk.method(mvsdk.CAMERA_SNAP_PROC)
 	def capture_callback(self, handle, rawData, frameHeads, context):
 		frameHead = frameHeads[0]
-		self.frameIndex += 1
 
 		mvsdk.CameraImageProcess(handle, rawData, self.frameBuffer, frameHead)
 		mvsdk.CameraReleaseImageBuffer(handle, rawData)
@@ -101,14 +100,16 @@ class Capture(object):
 
 				return False
 
+		self.frameIndex += 1
+
 		# prepare file for stitcher, save locally and send next file instruction
-		path = 'input/' + self.session + '/' + str(time()) + '.png'
-		cv2.imwrite(path, frame)
+		path = 'input/' + self.session + '/' + str(int(time())) + '.png'
+		# cv2.imwrite(path, frame)
 
 		self.stitcher.stdin.write(path + '\n')
 		self.stitcher.stdin.flush()
 
-		if self.frameIndex % 100 == 0:
+		if self.frameIndex % 20 == 0:
 			self.stitcher.stdin.write('NEXT\n')
 			self.stitcher.stdin.flush()
 
