@@ -5,6 +5,8 @@ import mvsdk
 from time import sleep
 import cv2
 import numpy as np
+from software.input_image import InputImage
+from stitch import Stitcher
 
 brightness_probe_offset = 25
 brightness_probe_field = 5
@@ -14,6 +16,8 @@ brightness_max = 247
 class Capture(object):
 	def __init__(self):
 		super(Capture, self).__init__()
+
+		self.stitcher = Stitcher()
 
 		self.frameIndex = 0
 		self.exposure = 20
@@ -87,17 +91,7 @@ class Capture(object):
 
 				return False
 
-		path = 'input/frame-' + str(self.frameIndex) + '.bmp'
-		self.images.append(path)
-
-		status = mvsdk.CameraSaveImage(handle, path, self.frameBuffer, frameHead, mvsdk.FILE_BMP, 1000)
-
-		if status != mvsdk.CAMERA_STATUS_SUCCESS:
-			print("Save image failed. {}".format(status))
-
-			exit(3)
-
-		print(path)
+		self.stitcher.add(InputImage(frame))
 
 	def stop(self):
 		mvsdk.CameraUnInit(self.handle)

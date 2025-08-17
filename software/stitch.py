@@ -2,13 +2,14 @@ from time import time
 import cv2
 import os
 import numpy as np
+from uuid import uuid4
 
 from input_image import InputImage
 from movement import calculate_movement
 from merge import merge_images
 
-def stitch(filenames):
-	images = []
+class Stitcher:
+	session = str(uuid4())
 
 	# base rotation to align to track
 	# will rotate back to isometric view when complete
@@ -19,49 +20,43 @@ def stitch(filenames):
 	# the sobbel field is half of this
 	coarse_window = 10
 
-	print('loading images')
+	slice = 10000
+	slice_index = 0
 
-	for file in filenames:
-		print('load', file)
-		image = InputImage(file)
-
-		print('rotate')
-		image.rotate(rotation, cutoff)
-
-		print('edge mask')
-		image.create_edge_mask(coarse_window)
-
-		print('contrast map')
-		image.create_contrast_map()
-
-		images.append(image)
-
-	images = sorted(images, key=lambda input: input.index)
-
-	last = images[0]
+	last_image: InputImage
+	images = []
 	total_movement = 0
 
-	images[0].movement = 0
-	images[0].offset_x = 0
+	def add(self, image: InputImage):
+		image.rotate(self.rotation, self.cutoff)
+		image.create_edge_mask(self.coarse_window)
+		image.create_contrast_map()
 
-	moved_images = [images[0]]
+		if self.last_image:
+			movement = calculate_movement(self.last_image, image, self.coarse_window)
+			print(movement, self.total_movement)
 
-	for next in images[1:]:
-		movement = calculate_movement(last, next, coarse_window)
+			# ignore images with very minimal movement
+			if movement < 5:
+				return
 
-		print(last.file_name, movement, total_movement)
+			self.total_movement += movement
 
-		# ignore images with very minimal movement
-		if movement > 5:
-			total_movement += movement
+			image.movement = movement
+			image.offset_x = self.total_movement
+		else:
+			image.movement = 0
+			image.offset_x = 0
 
-			next.movement = movement
-			next.offset_x = total_movement
+		self.images.append(image)
 
-			moved_images.append(next)
+		if self.total_movement > self.slice:
+			self.merge_slice()
 
-		last = next
+	def merge_slice(self):
+		self.slice_index += 1
 
-	merged = merge_images(moved_images)
+		slice = [image for image in self.images]
+		merged = merge_images(slice)
 
-	return merged
+		cv2.imwrite('stitched-' + self.session + '-' + str(self.slice_index) + '.png', merged)

@@ -3,14 +3,11 @@ import re
 import numpy as np
 
 class InputImage:
-	def __init__(self, file_name):
-		self.file_name = file_name
-		self.index = int(re.findall(r'\d+', file_name)[-1])
+	movement = 0
+	offset_x = 0
 
-		self.load()
-
-	def load(self):
-		self.source = cv2.cvtColor(cv2.imread(self.file_name), cv2.COLOR_BGR2BGRA)
+	def __init__(self, buffer):
+		self.source = cv2.cvtColor(buffer, cv2.COLOR_BGR2BGRA)
 
 	def rotate(self, angle, cutoff):
 		(h, w) = self.source.shape[:2]
