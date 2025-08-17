@@ -1,53 +1,43 @@
 import numpy as np
+import cv2
 
-def merge_images(images, top_n=5):
+def merge_images(images, feather_sigma = 1.0):
 	frame_width = images[0].rotated.shape[1]
 	frame_height = images[0].rotated.shape[0]
 	output_width = frame_width + images[-1].offset_x
 	output_height = frame_height
 
 	canvas = np.zeros((output_height, output_width, 4), dtype=np.uint8)
+	max_contrast_map = np.full((output_height, output_width), -np.inf, dtype=np.float32)
 
-	# Pre-extract rotated images and contrast maps
 	rots = [img.rotated.astype(np.float32) for img in images]
 	contrasts = [img.contrast_map.astype(np.float32) for img in images]
 	offsets = [img.offset_x for img in images]
 
-	for x in range(output_width):
-		# Determine overlapping images for this column
-		overlaps_idx = [i for i, off in enumerate(offsets) if off <= x < off + frame_width]
-		if not overlaps_idx:
-			continue
+	for rot, contrast, offset in zip(rots, contrasts, offsets):
+		x_start = offset
+		x_end = offset + frame_width
 
-		L = len(overlaps_idx)
-		col_height = frame_height
+		# Slice the current region
+		contrast_slice = max_contrast_map[:, x_start:x_end]
 
-		if x % 100 == 0:
-			print(x, L)
+		# Mask of pixels where this image is sharper
+		mask = contrast > contrast_slice  # (H, W)
 
-		# Stack contrast and pixel data
-		contrast_stack = np.zeros((L, col_height), dtype=np.float32)
-		pixel_stack = np.zeros((L, col_height, 4), dtype=np.float32)
+		# Update canvas using np.where to broadcast mask
+		canvas[:, x_start:x_end] = np.where(
+			mask[:, :, np.newaxis],
+			rot,
+			canvas[:, x_start:x_end]
+		)
 
-		for idx, i in enumerate(overlaps_idx):
-			col_idx = x - offsets[i]
-			contrast_stack[idx] = contrasts[i][:, col_idx]
-			pixel_stack[idx] = rots[i][:, col_idx, :]
+		# Update max contrast
+		max_contrast_map[:, x_start:x_end][mask] = contrast[mask]
 
-		top_k = min(top_n, L)
+	if feather_sigma > 0:
+		ksize = max(3, int(feather_sigma * 6) | 1)  # approximate rule: kernel ~ 6*sigma
 
-		# Vectorized top-N selection
-		top_indices = np.argpartition(-contrast_stack, top_k-1, axis=0)[:top_k, :]
-		row_indices = np.arange(col_height)
-		top_pixels = pixel_stack[top_indices, row_indices[np.newaxis, :], :]
-		top_contrasts = contrast_stack[top_indices, row_indices[np.newaxis, :]]
-
-		# Blend using normalized weights
-		weights = top_contrasts + 1e-6
-		weights_sum = np.sum(weights, axis=0, keepdims=True)
-		normalized_weights = weights / weights_sum
-		blended_column = np.sum(top_pixels * normalized_weights[:, :, np.newaxis], axis=0)
-
-		canvas[:, x] = np.clip(blended_column, 0, 255).astype(np.uint8)
+		for c in range(4):
+			canvas[:, :, c] = cv2.GaussianBlur(canvas[:, :, c], (ksize, ksize), feather_sigma)
 
 	return canvas
