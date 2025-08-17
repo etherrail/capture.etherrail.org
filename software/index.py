@@ -7,6 +7,7 @@ from requests import get
 print('write filename to add file to stitcher. the source image will be deleted after import')
 print('write NEXT to generate a frame from all images (and reset position)')
 print('write FINISH to generate a frame, then exit')
+print('a new frame will be rendered after 10k pixels automatically')
 
 print('obtaining session...')
 session = get('https://kalkbreite.com/capture/session/create').text
@@ -28,5 +29,8 @@ while True:
 
 		if image.valid_flash_brightness(25, 5, 200, 247):
 			stitcher.add(image)
+
+			if stitcher.total_movement > 10000:
+				stitcher.render(session)
 		else:
 			print('invalid brightness of image: ' + file + ', brightness')

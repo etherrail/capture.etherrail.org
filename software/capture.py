@@ -85,10 +85,6 @@ class Capture(object):
 		self.stitcher.stdin.write(path + '\n')
 		self.stitcher.stdin.flush()
 
-		if self.frameIndex % 20 == 0:
-			self.stitcher.stdin.write('NEXT\n')
-			self.stitcher.stdin.flush()
-
 
 	def stop(self):
 		mvsdk.CameraUnInit(self.handle)
