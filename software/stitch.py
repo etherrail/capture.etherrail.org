@@ -22,14 +22,19 @@ def stitch(filenames):
 	print('loading images')
 
 	for file in filenames:
+		print('load', file)
 		image = InputImage(file)
 
-		if image.valid_flash_brightness(25, 5, 200, 247):
-			image.rotate(rotation, cutoff)
-			image.create_edge_mask(coarse_window)
-			image.create_contrast_map()
+		print('rotate')
+		image.rotate(rotation, cutoff)
 
-			images.append(image)
+		print('edge mask')
+		image.create_edge_mask(coarse_window)
+
+		print('contrast map')
+		image.create_contrast_map()
+
+		images.append(image)
 
 	images = sorted(images, key=lambda input: input.index)
 

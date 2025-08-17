@@ -22,6 +22,7 @@ while True:
 	stitched = stitch(images)
 
 	print("stitching took", time.time() - start)
+	print("image time", (time.time() - start) / len(images))
 	cv2.imwrite('stitched.png', stitched)
 
 	exit(1)
