@@ -106,20 +106,5 @@ if __name__ == '__main__':
 
 	capture.start()
 
-	def getch():
-		fd = sys.stdin.fileno()
-		old_settings = termios.tcgetattr(fd)
-
-		try:
-			tty.setraw(fd)
-			ch = sys.stdin.read(1)
-		finally:
-			termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
-
-		return ch
-
 	while True:
-		if getch().lower() == 'e':
-			capture.stop()
-
 		sleep(0.1)

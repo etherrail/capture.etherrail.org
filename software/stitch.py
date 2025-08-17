@@ -20,13 +20,16 @@ class Stitcher:
 	# the sobbel field is half of this
 	coarse_window = 10
 
-	slice = 10000
-	slice_index = 0
+	slice = 10000 # target width of a slice (will be a bit bigger)
+	slice_index = 0 # number of current slice
+	slice_keep = 0 # will be set to width of image. how much will be kept of the last slice
 
 	images = []
 	total_movement = 0
 
 	def add(self, image: InputImage):
+		self.slice_keep = image.source.width()
+
 		image.rotate(self.rotation, self.cutoff)
 		image.create_edge_mask(self.coarse_window)
 		image.create_contrast_map()
@@ -56,8 +59,16 @@ class Stitcher:
 
 	def merge_slice(self):
 		self.slice_index += 1
+		print('slice', self.slice_index)
 
-		slice = [image for image in self.images]
-		merged = merge_images(slice)
+		pool = [image for image in self.images]
+		self.images = []
 
-		cv2.imwrite('stitched-' + self.session + '-' + str(self.slice_index) + '.png', merged)
+		for image in pool:
+			if image.offset_x > self.slice - self.slice_keep:
+				self.images.append(image)
+
+		print('MERGE', self.total_movement, len(pool), len(self.images))
+
+		# merged = merge_images(pool)
+		# cv2.imwrite('stitched-' + self.session + '-' + str(self.slice_index) + '.png', merged)

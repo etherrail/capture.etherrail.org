@@ -64,3 +64,8 @@ class InputImage:
 		# blur a bit to break up single pixel highlights
 		# boxblur by 1px (3 field)
 		self.contrast_map = cv2.GaussianBlur(self.full_contrast_map, (3, 3), 0)
+
+	def width(self):
+		(h, w) = self.source.shape[:2]
+
+		return w
