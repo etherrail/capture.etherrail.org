@@ -27,7 +27,6 @@ def stitch(filenames):
 		if image.valid_flash_brightness(25, 5, 200, 247):
 			image.rotate(rotation, cutoff)
 			image.create_edge_mask()
-			image.create_coarse_edge_mask(coarse_movement_window)
 			image.create_contrast_map()
 
 			images.append(image)

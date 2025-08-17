@@ -7,8 +7,8 @@ import numpy as np
 import time
 
 while True:
-	tag = input('TAG: ')
-	direction = input('R/F: ')
+	# tag = input('TAG: ')
+	# direction = input('R/F: ')
 
 	images = []
 
@@ -16,11 +16,15 @@ while True:
 		if file.endswith('.bmp'):
 			images.append('input/' + file)
 
+	images.sort()
+
 	start = time.time()
 	stitched = stitch(images)
 
 	print("stitching took", time.time() - start)
 	cv2.imwrite('stitched.png', stitched)
+
+	exit(1)
 
 	location = 'https://kalkbreite.com/capture/' + tag + '/' + ('reverse' if direction == 'r' else 'forward')
 

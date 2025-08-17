@@ -18,14 +18,15 @@ class InputImage:
 	def valid_flash_brightness(self, offset, field, min, max):
 		h, w, _ = self.source.shape
 
-		brightness = self.brightness(offset, offset, field)
+		grayscale = cv2.cvtColor(self.source, cv2.COLOR_BGR2GRAY)
+		brightness = self.brightness(grayscale, offset, offset, field)
 
 		if brightness > min and brightness < max:
 			return True
 
 		# the pantographs sometimes touch the top edge
 		# test the left pixel too, if it is in range, the image is valid
-		brightness = self.brightness(offset, h - offset, field)
+		brightness = self.brightness(grayscale, offset, h - offset, field)
 
 		if brightness > min and brightness < max:
 			return True
@@ -34,10 +35,9 @@ class InputImage:
 
 		return False
 
-	def brightness(self, x, y, field):
-		grayscale = cv2.cvtColor(self.source, cv2.COLOR_BGR2GRAY)
-
+	def brightness(self, grayscale, x, y, field):
 		field = grayscale[y-field:y+field, x-field:x+field]
+
 		return np.mean(field)
 
 	def rotate(self, angle, cutoff):
