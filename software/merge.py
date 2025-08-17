@@ -1,6 +1,6 @@
 import numpy as np
 
-def merge_images(images):
+def merge_images(images, block_size):
 	frame_width = images[0].rotated.shape[1]
 	frame_height = images[0].rotated.shape[0]
 
@@ -9,46 +9,57 @@ def merge_images(images):
 
 	canvas = np.zeros((output_height, output_width, 4), dtype=np.uint8)
 
-	for x in range(0, output_width):
-		overlaps = [image for image in images if x >= image.offset_x and x < image.offset_x + frame_width]
+	for x in range(0, output_width, block_size):
+		overlaps = [image for image in images if x < image.offset_x + frame_width and x + block_size > image.offset_x]
 
 		if x % 100 == 0:
 			print(x, len(overlaps))
 
-		contrast_stack = []
-		pixel_stack = []
+		for y in range(0, output_height, block_size):
+			# Canvas block coordinates
+			x0, x1 = x, min(x + block_size, output_width)
+			y0, y1 = y, min(y + block_size, output_height)
 
-		for layer in overlaps:
-			col_index = x - layer.offset_x
-			contrast_column = layer.contrast_map[:, col_index]  # (H,)
-			pixel_column = layer.rotated[:, col_index, :]       # (H, 4)
+			if not overlaps:
+				continue
 
-			contrast_stack.append(contrast_column)
-			pixel_stack.append(pixel_column)
+			best_avg_contrast = -np.inf
+			best_layer = None
+			best_lx0, best_lx1 = None, None
 
-		contrast_stack = np.stack(contrast_stack, axis=0).astype(np.float32)  # (L, H)
-		pixel_stack = np.stack(pixel_stack, axis=0).astype(np.float32)        # (L, H, 4)
+			# Pick the layer with the highest average contrast over the block
+			for layer in overlaps:
+				# Layer coordinates overlapping the canvas block
+				lx0 = max(0, x0 - layer.offset_x)
+				lx1 = min(frame_width, x1 - layer.offset_x)
+				ly0 = y0
+				ly1 = y1
 
-		# For each row, pick the top N contrasts
-		top_n = min(5, len(overlaps))
+				if lx0 >= lx1 or ly0 >= ly1:
+					continue
 
-		H = contrast_stack.shape[1]
-		top_indices = np.argsort(-contrast_stack, axis=0)[:top_n, np.arange(H)]  # (top_n, H)
+				contrast_block = layer.contrast_map[ly0:ly1, lx0:lx1]
+				avg_contrast = np.mean(contrast_block)
 
-		# Gather top N pixels and contrasts
-		top_pixels = np.zeros((top_n, H, 4), dtype=np.float32)
-		top_contrasts = np.zeros((top_n, H), dtype=np.float32)
-		for i in range(H):
-			top_pixels[:, i, :] = pixel_stack[top_indices[:, i], i, :]
-			top_contrasts[:, i] = contrast_stack[top_indices[:, i], i]
+				if avg_contrast > best_avg_contrast:
+					best_avg_contrast = avg_contrast
+					best_layer = layer
+					best_lx0, best_lx1 = lx0, lx1
 
-		# Normalize weights and blend
-		weights = top_contrasts + 1e-6
-		weights_sum = np.sum(weights, axis=0, keepdims=True)
-		normalized_weights = weights / weights_sum
-		weighted_pixels = top_pixels * normalized_weights[:, :, np.newaxis]
-		blended_column = np.sum(weighted_pixels, axis=0)
+			if best_layer is None:
+				continue
 
-		canvas[:, x] = np.clip(blended_column, 0, 255).astype(np.uint8)
+			# Compute the exact size of the block to copy
+			canvas_x0 = max(x0, best_layer.offset_x)
+			canvas_x1 = min(x1, best_layer.offset_x + frame_width)
+			canvas_y0 = y0
+			canvas_y1 = y1
+
+			layer_x0 = canvas_x0 - best_layer.offset_x
+			layer_x1 = canvas_x1 - best_layer.offset_x
+			layer_y0 = canvas_y0
+			layer_y1 = canvas_y1
+
+			canvas[canvas_y0:canvas_y1, canvas_x0:canvas_x1, :] = best_layer.rotated[layer_y0:layer_y1, layer_x0:layer_x1, :]
 
 	return canvas
