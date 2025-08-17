@@ -30,7 +30,7 @@ class Capture(object):
 
 		self.stitcher = Popen(
 			[sys.executable, 'index.py'],
-			stdin=PIPE, stdout=PIPE, stderr=PIPE,
+			stdin=PIPE, stdout=sys.stdout, stderr=sys.stderr,
 			text=True
 		)
 
