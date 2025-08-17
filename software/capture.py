@@ -1,12 +1,15 @@
+from os import mkdir
 import sys
 import tty
 import termios
 import mvsdk
-from time import sleep
+from time import sleep, time
 import cv2
 import numpy as np
 from input_image import InputImage
 from stitch import Stitcher
+from uuid import uuid4
+from subprocess import Popen, PIPE
 
 brightness_probe_offset = 25
 brightness_probe_field = 5
@@ -14,15 +17,22 @@ brightness_min = 200
 brightness_max = 247
 
 class Capture(object):
+	session = str(uuid4())
+
 	def __init__(self):
 		super(Capture, self).__init__()
 
-		self.stitcher = Stitcher()
+		mkdir('input/' + self.session)
 
 		self.frameIndex = 0
 		self.exposure = 20
-
 		self.frameBuffer = None
+
+		self.stitcher = Popen(
+			[sys.executable, 'index.py'],
+			stdin=PIPE, stdout=PIPE, stderr=PIPE,
+			text=True
+		)
 
 	def connect(self):
 		devices = mvsdk.CameraEnumerateDevice()
@@ -91,13 +101,24 @@ class Capture(object):
 
 				return False
 
-		self.stitcher.add(InputImage(frame))
+		# prepare file for stitcher, save locally and send next file instruction
+		path = 'input/' + self.session + '/' + str(time())
+		cv2.imwrite(path, frame)
+
+		self.stitcher.stdin.write(path + '\n')
+		self.stitcher.stdin.flush()
+
 
 	def stop(self):
 		mvsdk.CameraUnInit(self.handle)
 		mvsdk.CameraAlignFree(self.frameBuffer)
 
-		return self.images
+		self.stitcher.stdin.write('FINISH\n')
+		self.stitcher.stdin.flush()
+
+		self.stitcher.wait()
+
+		return
 
 
 if __name__ == '__main__':
@@ -106,5 +127,6 @@ if __name__ == '__main__':
 
 	capture.start()
 
-	while True:
-		sleep(0.1)
+	input('* Press ENTER to stop *')
+
+	capture.stop()

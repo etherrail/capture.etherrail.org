@@ -1,37 +1,24 @@
-from os import listdir, read
-from sys import stdin
-from stitch import stitch
-from requests import post
+from os import unlink
+from input_image import InputImage
+from stitch import Stitcher
 import cv2
-import numpy as np
-import time
+
+print('write filename to add file to stitcher. the source image will be deleted after import')
+print('write NEXT to generate a frame from all images (and reset position)')
+print('write FINISH to generate a frame, then exit')
+
+stitcher = Stitcher()
 
 while True:
-	# tag = input('TAG: ')
-	# direction = input('R/F: ')
+	file = input()
 
-	images = []
+	if file == 'NEXT' or file == 'FINISH':
+		stitcher.render()
 
-	for file in listdir('input'):
-		if file.endswith('.bmp'):
-			images.append('input/' + file)
+		if file == 'FINISH':
+			exit(0)
 
-	images.sort()
+	image = cv2.imread(file)
+	unlink(file)
 
-	start = time.time()
-	stitched = stitch(images)
-
-	print("stitching took", time.time() - start)
-	print("image time", (time.time() - start) / len(images))
-	cv2.imwrite('stitched.png', stitched)
-
-	exit(1)
-
-	location = 'https://kalkbreite.com/capture/' + tag + '/' + ('reverse' if direction == 'r' else 'forward')
-
-	print('posting to ' + location)
-
-	success, image = cv2.imencode('.png', stitched)
-
-	post(location, data=image.tobytes())
-	print('posted')
+	stitcher.add(InputImage(image))

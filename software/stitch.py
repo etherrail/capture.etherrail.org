@@ -54,21 +54,6 @@ class Stitcher:
 
 		print('*', self.total_movement)
 
-		if self.total_movement > self.slice:
-			self.merge_slice()
-
-	def merge_slice(self):
-		self.slice_index += 1
-		print('slice', self.slice_index)
-
-		pool = [image for image in self.images]
-		self.images = []
-
-		for image in pool:
-			if image.offset_x > self.slice - self.slice_keep:
-				self.images.append(image)
-
-		print('MERGE', self.total_movement, len(pool), len(self.images))
-
-		# merged = merge_images(pool)
-		# cv2.imwrite('stitched-' + self.session + '-' + str(self.slice_index) + '.png', merged)
+	def render(self):
+		merged = merge_images(self.images)
+		cv2.imwrite('stitched2-' + self.session + '-' + str(self.slice_index) + '.png', merged)
