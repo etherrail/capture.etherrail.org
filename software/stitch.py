@@ -22,13 +22,15 @@ class Stitcher:
 
 	slice = 10000 # target width of a slice (will be a bit bigger)
 	slice_index = 0 # number of current slice
-	slice_keep = 0 # will be set to width of image. how much will be kept of the last slice
 
 	images = []
 	total_movement = 0
 
+	last_capture = time()
+
 	def add(self, image: InputImage):
-		self.slice_keep = image.width()
+		print('CAPTURE', time() - self.last_capture)
+		self.last_capture = time()
 
 		image.rotate(self.rotation, self.cutoff)
 		image.create_edge_mask(self.coarse_window)
@@ -65,8 +67,12 @@ class Stitcher:
 		self.images = []
 
 		for image in pool:
-			if image.offset_x > self.slice - self.slice_keep:
+			image.offset_x -= self.slice
+
+			if image.offset_x >= image.width():
 				self.images.append(image)
+
+		self.total_movement -= self.slice
 
 		print('MERGE', self.total_movement, len(pool), len(self.images))
 

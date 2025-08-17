@@ -66,6 +66,6 @@ class InputImage:
 		self.contrast_map = cv2.GaussianBlur(self.full_contrast_map, (3, 3), 0)
 
 	def width(self):
-		(h, w) = self.source.shape[:2]
+		(h, w) = self.rotated.shape[:2]
 
 		return w
