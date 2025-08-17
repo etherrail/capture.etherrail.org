@@ -23,7 +23,7 @@ class Stitcher:
 	slice = 10000
 	slice_index = 0
 
-	last_image: InputImage
+	last_image = None
 	images = []
 	total_movement = 0
 
