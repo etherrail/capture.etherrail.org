@@ -28,15 +28,13 @@ class Stitcher:
 
 	last_capture = time()
 
-	def __init__(self):
-		self.focus_map = cv2.imread('focus-map.png', cv2.IMREAD_UNCHANGED)[:, :, 3]
-
 	def add(self, image: InputImage):
 		print('CAPTURE', time() - self.last_capture)
 		self.last_capture = time()
 
 		image.rotate(self.rotation, self.cutoff)
 		image.create_edge_mask(self.coarse_window)
+		image.create_contrast_map()
 
 		if len(self.images):
 			movement = calculate_movement(self.images[-1], image, self.coarse_window)
@@ -56,8 +54,6 @@ class Stitcher:
 
 		self.images.append(image)
 
-		image.apply_focus(self.focus_map)
-
 		print('*', self.total_movement)
 
 		if self.total_movement > self.slice:
@@ -70,15 +66,15 @@ class Stitcher:
 		pool = [image for image in self.images]
 		self.images = []
 
-		# for image in pool:
-			# image.offset_x -= self.slice
+		for image in pool:
+			image.offset_x -= self.slice
 
-			# if image.offset_x >= image.width():
-			#	self.images.append(image)
+			if image.offset_x >= image.width():
+				self.images.append(image)
 
-		# self.total_movement -= self.slice
+		self.total_movement -= self.slice
 
 		print('MERGE', self.total_movement, len(pool), len(self.images))
 
-		merged = merge_images(pool, self.focus_map)
-		cv2.imwrite('stitched-' + self.session + '-' + str(self.slice_index) + '.png', merged)
+		# merged = merge_images(pool)
+		# cv2.imwrite('stitched-' + self.session + '-' + str(self.slice_index) + '.png', merged)
