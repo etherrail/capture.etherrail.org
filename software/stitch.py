@@ -17,7 +17,7 @@ def stitch(filenames):
 
 	# size of the coarse window for sobbel checks
 	# the sobbel field is half of this
-	coarse_movement_window = 5
+	coarse_window = 10
 
 	print('loading images')
 
@@ -26,7 +26,7 @@ def stitch(filenames):
 
 		if image.valid_flash_brightness(25, 5, 200, 247):
 			image.rotate(rotation, cutoff)
-			image.create_edge_mask()
+			image.create_edge_mask(coarse_window)
 			image.create_contrast_map()
 
 			images.append(image)
@@ -42,7 +42,7 @@ def stitch(filenames):
 	moved_images = [images[0]]
 
 	for next in images[1:]:
-		movement = calculate_movement(last, next, coarse_movement_window)
+		movement = calculate_movement(last, next, coarse_window)
 
 		print(last.file_name, movement, total_movement)
 

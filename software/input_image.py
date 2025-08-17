@@ -65,14 +65,18 @@ class InputImage:
 
 		self.rotated = cropped
 
-	def create_edge_mask(self):
+	def create_edge_mask(self, coarse_window):
 		kernel_size = 3
 		gray = cv2.cvtColor(self.rotated, cv2.COLOR_BGR2GRAY)
 
+		# Get current dimensions
+		height, width = gray.shape
+		small_gray = cv2.resize(gray, (width // coarse_window, height // coarse_window), interpolation=cv2.INTER_AREA)
+
 		self.edge_mask = cv2.convertScaleAbs(
 			cv2.magnitude(
-				cv2.Sobel(gray, cv2.CV_64F, 1, 0, ksize=kernel_size),
-				cv2.Sobel(gray, cv2.CV_64F, 0, 1, ksize=kernel_size)
+				cv2.Sobel(small_gray, cv2.CV_64F, 1, 0, ksize=kernel_size),
+				cv2.Sobel(small_gray, cv2.CV_64F, 0, 1, ksize=kernel_size)
 			)
 		)
 
