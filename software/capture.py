@@ -74,8 +74,13 @@ class Capture(object):
 		mvsdk.CameraReleaseImageBuffer(handle, rawData)
 
 		# prepare file for stitcher, save locally and send next file instruction
-		path = 'input/' + self.session + '/' + str(self.frameIndex) + '.png'
-		mvsdk.CameraSaveImage(handle, path, self.frameBuffer, frameHead, mvsdk.FILE_BMP, 1000)
+		path = 'input/' + self.session + '/' + str(self.frameIndex) + '.bmp'
+		status = mvsdk.CameraSaveImage(handle, path, self.frameBuffer, frameHead, mvsdk.FILE_BMP, 1000)
+
+		if status != mvsdk.CAMERA_STATUS_SUCCESS:
+			print("Save image failed. {}".format(status))
+
+			exit(3)
 
 		self.stitcher.stdin.write(path + '\n')
 		self.stitcher.stdin.flush()

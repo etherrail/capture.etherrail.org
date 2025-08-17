@@ -60,7 +60,7 @@ class Stitcher:
 
 		# merge all images
 		merged = merge_images(self.images)
-		cv2.imwrite('stitched-' + self.session + '-' + str(self.slice_index) + '.bmp', merged)
+		cv2.imwrite('stitched-' + self.session + '-' + str(self.slice_index) + '.png', merged)
 
 		shift = self.images[-1].offset_x
 
