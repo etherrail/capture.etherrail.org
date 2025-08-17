@@ -28,7 +28,7 @@ class Stitcher:
 	total_movement = 0
 
 	def add(self, image: InputImage):
-		self.slice_keep = image.source.width()
+		self.slice_keep = image.width()
 
 		image.rotate(self.rotation, self.cutoff)
 		image.create_edge_mask(self.coarse_window)
