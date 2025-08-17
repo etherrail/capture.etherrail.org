@@ -61,7 +61,6 @@ class Stitcher:
 		# merge all images
 		merged = merge_images(self.images)
 		cv2.imwrite('stitched-' + self.session + '-' + str(self.slice_index) + '.png', merged)
-		success, image = cv2.imencode('.png', merged)
 
 		shift = self.images[-1].offset_x
 
@@ -71,4 +70,5 @@ class Stitcher:
 		self.images = [image for image in self.images if image.offset_x >= 0]
 		self.total_movement -= shift
 
+		success, image = cv2.imencode('.png', merged)
 		post('https://kalkbreite.com/capture/session/' + session + '/0/0', data=image.tobytes())
