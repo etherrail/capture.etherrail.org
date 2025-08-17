@@ -57,6 +57,6 @@ def stitch(filenames):
 
 		last = next
 
-	merged = merge_images(moved_images, 10)
+	merged = merge_images(moved_images)
 
 	return merged
