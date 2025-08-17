@@ -61,7 +61,7 @@ class Stitcher:
 		merged = merge_images(self.images)
 		cv2.imwrite('stitched-' + self.session + '-' + str(self.slice_index) + '.png', merged)
 
-		shift = self.images[-1].offset_x - self.images[0].width()
+		shift = self.images[-1].offset_x
 
 		for image in self.images:
 			image.offset_x -= shift
