@@ -17,8 +17,8 @@ while True:
 
 		if file == 'FINISH':
 			exit(0)
+	else:
+		image = cv2.imread(file)
+		unlink(file)
 
-	image = cv2.imread(file)
-	unlink(file)
-
-	stitcher.add(InputImage(image))
+		stitcher.add(InputImage(image))
