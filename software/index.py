@@ -7,7 +7,7 @@ import cv2
 import numpy as np
 import time
 
-if __name__ == '__main__':
+while True:
 	# tag = input('TAG: ')
 	# direction = input('R/F: ')
 

@@ -1,4 +1,3 @@
-from time import sleep
 import numpy as np
 
 def merge_images(images, mask):
@@ -29,8 +28,6 @@ def merge_images(images, mask):
 		# Accumulate color and alpha
 		np.add(canvas_slice[:, :, :3], img_rgb * effective_alpha[:, :, None], out=canvas_slice[:, :, :3])
 		np.add(canvas_slice[:, :, 3], effective_alpha, out=canvas_slice[:, :, 3])
-
-		sleep(0.01)
 
 	# Normalize RGB by total alpha, avoiding division by zero
 	total_alpha = canvas[:, :, 3:4]
