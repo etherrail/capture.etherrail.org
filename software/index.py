@@ -1,6 +1,7 @@
 from os import listdir, read
 from sys import stdin
-from stitch import stitch
+from input_image import InputImage
+from stitch import Stitcher
 from requests import post
 import cv2
 import numpy as np
@@ -10,20 +11,18 @@ while True:
 	# tag = input('TAG: ')
 	# direction = input('R/F: ')
 
-	images = []
+	stitcher = Stitcher()
+
+	files = []
 
 	for file in listdir('input'):
 		if file.endswith('.bmp'):
-			images.append('input/' + file)
+			files.append('input/' + file)
 
-	images.sort()
+	files.sort()
 
-	start = time.time()
-	stitched = stitch(images)
-
-	print("stitching took", time.time() - start)
-	print("image time", (time.time() - start) / len(images))
-	cv2.imwrite('stitched.png', stitched)
+	for file in files:
+		stitcher.add(InputImage(cv2.imread(file)))
 
 	exit(1)
 

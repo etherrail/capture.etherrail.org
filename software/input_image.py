@@ -1,6 +1,7 @@
 import cv2
 import re
 import numpy as np
+from time import time
 
 class InputImage:
 	movement = 0
@@ -49,21 +50,11 @@ class InputImage:
 			)
 		)
 
-	def create_contrast_map(self):
-		# Split the image into color channels (BGRA assumed)
-		b, g, r, _ = cv2.split(self.rotated)
+	def apply_focus(self, mask):
+		masked = self.rotated.copy()
+		masked[:, :, 3] = mask
 
-		# Compute Laplacian for each channel
-		lap_b = cv2.convertScaleAbs(cv2.Laplacian(b, cv2.CV_64F))
-		lap_g = cv2.convertScaleAbs(cv2.Laplacian(g, cv2.CV_64F))
-		lap_r = cv2.convertScaleAbs(cv2.Laplacian(r, cv2.CV_64F))
-
-  		# Sum of all channels
-		self.full_contrast_map = lap_b + lap_g + lap_r
-
-		# blur a bit to break up single pixel highlights
-		# boxblur by 1px (3 field)
-		self.contrast_map = cv2.GaussianBlur(self.full_contrast_map, (3, 3), 0)
+		self.focused = masked
 
 	def width(self):
 		(h, w) = self.rotated.shape[:2]

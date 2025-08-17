@@ -1,58 +1,47 @@
 import numpy as np
 
-def merge_images(images, top_n=5):
-	frame_width = images[0].rotated.shape[1]
-	frame_height = images[0].rotated.shape[0]
-	output_width = frame_width + images[-1].offset_x
+def merge_images(images, mask):
+	frame_height, frame_width = images[0].rotated.shape[:2]
+	output_width = frame_width + max(img.offset_x for img in images)
 	output_height = frame_height
 
-	print('create canvas')
+	# Canvas for RGBA in float [0,1]
+	canvas = np.zeros((output_height, output_width, 4), dtype=np.float32)
 
-	canvas = np.zeros((output_height, output_width, 4), dtype=np.uint8)
+	for img in images:
+		x_offset = img.offset_x
+		y_offset = 0  # no vertical offset
+		h, w = img.rotated.shape[:2]
 
-	print('cast')
+		# Image alpha normalized
+		img_alpha = img.rotated[:, :, 3] / 255.0
 
-	rots = [img.rotated.astype(np.float32) for img in images]
-	contrasts = [img.contrast_map.astype(np.float32) for img in images]
-	offsets = [img.offset_x for img in images]
+		# Apply mask
+		effective_alpha = img_alpha * mask  # shape (h, w)
 
-	print('loop')
+		# Expand alpha for RGB multiplication
+		effective_alpha_rgb = effective_alpha[:, :, np.newaxis]
 
-	for x in range(output_width):
-		# Determine overlapping images for this column
-		overlaps_idx = [i for i, off in enumerate(offsets) if off <= x < off + frame_width]
-		if not overlaps_idx:
-			continue
+		# Add weighted color
+		canvas[y_offset:y_offset+h, x_offset:x_offset+w, :3] += (
+			img.rotated[:, :, :3] / 255.0 * effective_alpha_rgb
+		)
 
-		L = len(overlaps_idx)
-		col_height = frame_height
+		# Sum alpha
+		canvas[y_offset:y_offset+h, x_offset:x_offset+w, 3] += effective_alpha
 
-		if x % 100 == 0:
-			print(x, L)
+	# Avoid division by zero
+	total_alpha = canvas[:, :, 3:4]  # shape (H, W, 1)
+	nonzero_mask = total_alpha[:, :, 0] > 0  # shape (H, W)
 
-		# Stack contrast and pixel data
-		contrast_stack = np.zeros((L, col_height), dtype=np.float32)
-		pixel_stack = np.zeros((L, col_height, 4), dtype=np.float32)
+	# Normalize RGB by total alpha
+	canvas[:, :, :3] = np.divide(
+		canvas[:, :, :3], total_alpha,
+		out=np.zeros_like(canvas[:, :, :3]),  # avoid NaNs
+		where=total_alpha != 0
+	)
 
-		for idx, i in enumerate(overlaps_idx):
-			col_idx = x - offsets[i]
-			contrast_stack[idx] = contrasts[i][:, col_idx]
-			pixel_stack[idx] = rots[i][:, col_idx, :]
-
-		top_k = min(top_n, L)
-
-		# Vectorized top-N selection
-		top_indices = np.argpartition(-contrast_stack, top_k-1, axis=0)[:top_k, :]
-		row_indices = np.arange(col_height)
-		top_pixels = pixel_stack[top_indices, row_indices[np.newaxis, :], :]
-		top_contrasts = contrast_stack[top_indices, row_indices[np.newaxis, :]]
-
-		# Blend using normalized weights
-		weights = top_contrasts + 1e-6
-		weights_sum = np.sum(weights, axis=0, keepdims=True)
-		normalized_weights = weights / weights_sum
-		blended_column = np.sum(top_pixels * normalized_weights[:, :, np.newaxis], axis=0)
-
-		canvas[:, x] = np.clip(blended_column, 0, 255).astype(np.uint8)
+	# Convert back to uint8
+	canvas = np.clip(canvas * 255, 0, 255).astype(np.uint8)
 
 	return canvas
