@@ -36,7 +36,6 @@ class Stitcher:
 
 		if len(self.images):
 			movement = calculate_movement(self.images[-1], image, self.coarse_window)
-			print(movement, self.total_movement)
 
 			# ignore images with very minimal movement
 			if movement < 5:
@@ -55,6 +54,8 @@ class Stitcher:
 		print('*', self.total_movement)
 
 	def render(self):
+		print('RENDER', len(self.images))
+
 		# merge all images
 		merged = merge_images(self.images)
 		cv2.imwrite('stitched2-' + self.session + '-' + str(self.slice_index) + '.png', merged)
@@ -65,3 +66,4 @@ class Stitcher:
 			image.offset_x -= shift
 
 		self.images = [image for image in self.images if image.offset_x >= 0]
+		self.total_movement -= shift
