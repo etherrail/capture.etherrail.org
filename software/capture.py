@@ -102,7 +102,7 @@ class Capture(object):
 				return False
 
 		# prepare file for stitcher, save locally and send next file instruction
-		path = 'input/' + self.session + '/' + str(time())
+		path = 'input/' + self.session + '/' + str(time()) + '.png'
 		cv2.imwrite(path, frame)
 
 		self.stitcher.stdin.write(path + '\n')
