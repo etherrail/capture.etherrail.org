@@ -3,11 +3,11 @@ import cv2
 import os
 import numpy as np
 from uuid import uuid4
-from requests import post
 
 from input_image import InputImage
 from movement import calculate_movement
 from merge import merge_images
+from itertools import combinations
 
 class Stitcher:
 	session = str(uuid4())
@@ -19,7 +19,7 @@ class Stitcher:
 
 	# size of the coarse window for sobbel checks
 	# the sobbel field is half of this
-	coarse_window = 4
+	coarse_window = 6
 
 	slice = 10000 # target width of a slice (will be a bit bigger)
 	slice_index = 0 # number of current slice
@@ -31,9 +31,12 @@ class Stitcher:
 	def add(self, image: InputImage):
 		self.slice_keep = image.width()
 
-		image.rotate(self.rotation, self.cutoff)
+		# image.rotate(self.rotation, self.cutoff)
+		image.rotated = image.source
+
 		image.create_edge_mask(self.coarse_window)
 		image.create_contrast_map()
+		image.create_focus_map(25)
 
 		if len(self.images):
 			movement = calculate_movement(self.images[-1], image, self.coarse_window)
@@ -69,6 +72,3 @@ class Stitcher:
 
 		self.images = [image for image in self.images if image.offset_x >= 0]
 		self.total_movement -= shift
-
-		success, image = cv2.imencode('.png', merged)
-		post('https://kalkbreite.com/capture/session/' + session + '/0/0', data=image.tobytes())

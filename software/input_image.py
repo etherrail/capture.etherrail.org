@@ -7,6 +7,7 @@ class InputImage:
 	offset_x = 0
 
 	def __init__(self, buffer):
+		print(buffer)
 		self.source = cv2.cvtColor(buffer, cv2.COLOR_BGR2BGRA)
 
 	# valid flashes are in a range of brigthness values
@@ -59,6 +60,72 @@ class InputImage:
 		cropped = rotated[cutoff:new_h-cutoff, cutoff:new_w-cutoff]
 
 		self.rotated = cropped
+
+	def top_contrast_points(self, k=500, gauss_sigma=0.1, nms_radius=1):
+		gray = cv2.cvtColor(self.rotated, cv2.COLOR_BGR2GRAY).astype(np.float32)
+
+		if gauss_sigma and gauss_sigma > 0:
+			# choose kernel from sigma (approx): ksize = 0 lets OpenCV pick appropriate size
+			gray = cv2.GaussianBlur(gray, (0, 0), gauss_sigma)
+
+		# 2) Gradient magnitude (edge strength)
+		gx = cv2.Sobel(gray, cv2.CV_32F, 1, 0, ksize=3)
+		gy = cv2.Sobel(gray, cv2.CV_32F, 0, 1, ksize=3)
+		mag = cv2.magnitude(gx, gy)
+
+		# 3) Non-maximum suppression via dilation
+		# Keep only pixels that are the local maximum within the neighborhood.
+		r = max(1, int(nms_radius))
+		kernel = np.ones((2*r+1, 2*r+1), np.uint8)
+		mag_dilated = cv2.dilate(mag, kernel)
+		nms_mask = (mag == mag_dilated)  # local peaks
+		# Optional small threshold to ignore near-zero noise peaks:
+		thr = 1e-6
+		nms_mask &= (mag > thr)
+
+		# 4) Gather candidate coordinates and their scores
+		ys, xs = np.where(nms_mask)
+		if len(xs) == 0:
+			return np.empty((0, 2), dtype=int)
+
+		scores = mag[ys, xs]
+
+		# 5) Take top-k by score
+		idx = np.argsort(scores)[::-1]
+		idx = idx[:k]
+		xs_top = xs[idx]
+		ys_top = ys[idx]
+
+		# Return (x, y) coordinates as ints
+		pts = np.stack([xs_top, ys_top], axis=1).astype(int)
+		return pts
+
+	def create_focus_map(self, window):
+		# Connect every point with every other point
+		points = self.top_contrast_points()
+
+		height, width = self.rotated.shape[:2]
+		canvas = np.zeros((height, width), dtype=np.uint8)
+		canvas[:] = 1
+
+		for y in range(window, height - window):
+			selection = [point[0] for point in points if point[1] > y - window and point[1] < y + window]
+
+			if len(selection):
+				size = (max(selection) - min(selection)) / 4
+				middle = np.average(selection)
+
+				cv2.circle(canvas, (int(middle), y), int(size), 255, -1)
+
+		# add border to fade out edges
+		inset = int(window * 2)
+
+		canvas[:, :inset] = 0
+		canvas[:, -inset:] = 0
+
+		canvas = cv2.GaussianBlur(canvas, (0, 0), window)
+
+		self.focus_map = canvas
 
 	def create_edge_mask(self, coarse_window):
 		kernel_size = 3

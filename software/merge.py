@@ -1,53 +1,70 @@
 import numpy as np
 
-def merge_images(images, top_n=5):
-	frame_width = images[0].rotated.shape[1]
-	frame_height = images[0].rotated.shape[0]
-	output_width = frame_width + images[-1].offset_x
-	output_height = frame_height
+def merge_images(images):
+	heights = [img.rotated.shape[0] for img in images]
+	widths  = [img.rotated.shape[1] for img in images]
+	offsets = [int(img.offset_x) for img in images]
 
-	canvas = np.zeros((output_height, output_width, 4), dtype=np.uint8)
+	H = max(heights)
+	W = max(o + w for o, w in zip(offsets, widths))
+	if W <= 0 or H <= 0:
+		return np.zeros((1,1,4), dtype=np.uint8)
 
-	# Pre-extract rotated images and contrast maps
-	rots = [img.rotated.astype(np.float32) for img in images]
-	contrasts = [img.contrast_map.astype(np.float32) for img in images]
-	offsets = [img.offset_x for img in images]
+	# Accumulators
+	color_sum = np.zeros((H, W, 3), dtype=np.float32)  # premultiplied by weight
+	alpha_sum = np.zeros((H, W, 1), dtype=np.float32)  # alpha weighted
+	weight_sum = np.zeros((H, W, 1), dtype=np.float32) # scalar weights
 
-	for x in range(output_width):
-		# Determine overlapping images for this column
-		overlaps_idx = [i for i, off in enumerate(offsets) if off <= x < off + frame_width]
-		if not overlaps_idx:
+	for img, off in zip(images, offsets):
+		src = img.rotated
+		mask = img.focus_map
+		h, w = src.shape[:2]
+
+		# --- Clip horizontally to canvas ---
+		x0 = max(off, 0)
+		x1 = min(off + w, W)
+		if x1 <= x0:
+			continue
+		sx0 = 0 if off >= 0 else -off
+		sx1 = sx0 + (x1 - x0)
+
+		# --- Clip vertically (top-aligned) ---
+		y0, sy0 = 0, 0
+		y1 = min(h, H)
+		sy1 = y1 - y0
+		if y1 <= y0:
 			continue
 
-		L = len(overlaps_idx)
-		col_height = frame_height
+		# Extract ROIs
+		src_roi  = src[sy0:sy1, sx0:sx1].astype(np.float32)
+		mask_roi = mask[sy0:sy1, sx0:sx1].astype(np.float32)
 
-		if x % 100 == 0:
-			print(x, L)
+		bgr = src_roi[..., :3]          # (..,3) float32 0..255
+		a   = src_roi[..., 3:4] / 255.0 # (..,1) 0..1
+		m   = (mask_roi / 255.0)[..., None]  # (..,1) 0..1
 
-		# Stack contrast and pixel data
-		contrast_stack = np.zeros((L, col_height), dtype=np.float32)
-		pixel_stack = np.zeros((L, col_height, 4), dtype=np.float32)
+		# Weight = focus * alpha  (so transparent areas contribute less)
+		wgt = m * a
 
-		for idx, i in enumerate(overlaps_idx):
-			col_idx = x - offsets[i]
-			contrast_stack[idx] = contrasts[i][:, col_idx]
-			pixel_stack[idx] = rots[i][:, col_idx, :]
+		# Accumulate color and alpha with weights
+		color_sum[y0:y1, x0:x1] += bgr * wgt          # premultiplied by wgt
+		alpha_sum[y0:y1, x0:x1] += a * wgt            # average alpha with same weights
+		weight_sum[y0:y1, x0:x1] += wgt
 
-		top_k = min(top_n, L)
+	# Finalize
+	# --- Finalize without shape gotchas ---
+	eps = 1e-8
+	mask = weight_sum > eps                      # (H,W,1) boolean
+	den  = np.where(mask, weight_sum, 1.0)       # (H,W,1), avoids /0 and keeps channel dim
 
-		# Vectorized top-N selection
-		top_indices = np.argpartition(-contrast_stack, top_k-1, axis=0)[:top_k, :]
-		row_indices = np.arange(col_height)
-		top_pixels = pixel_stack[top_indices, row_indices[np.newaxis, :], :]
-		top_contrasts = contrast_stack[top_indices, row_indices[np.newaxis, :]]
+	out_bgr = np.zeros_like(color_sum, dtype=np.float32)  # (H,W,3)
+	out_a   = np.zeros_like(alpha_sum, dtype=np.float32)  # (H,W,1)
 
-		# Blend using normalized weights
-		weights = top_contrasts + 1e-6
-		weights_sum = np.sum(weights, axis=0, keepdims=True)
-		normalized_weights = weights / weights_sum
-		blended_column = np.sum(top_pixels * normalized_weights[:, :, np.newaxis], axis=0)
+	# Elementwise division with broadcasting; only compute where mask is true
+	np.divide(color_sum, den, out=out_bgr, where=mask)
+	np.divide(alpha_sum, den, out=out_a,   where=mask)
 
-		canvas[:, x] = np.clip(blended_column, 0, 255).astype(np.uint8)
+	out = np.concatenate([out_bgr, out_a * 255.0], axis=-1)
+	out = np.clip(out, 0, 255).astype(np.uint8)
 
-	return canvas
+	return out
