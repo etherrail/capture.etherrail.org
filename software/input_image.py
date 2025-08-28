@@ -3,7 +3,8 @@ import re
 import numpy as np
 
 class InputImage:
-	movement = 0
+	movement = 0 # advance from last image
+	shift = 0 # up down
 	offset_x = 0
 
 	def __init__(self, buffer):

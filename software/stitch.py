@@ -26,7 +26,8 @@ class Stitcher:
 	slice_keep = 0 # will be set to width of image. how much will be kept of the last slice
 
 	images = []
-	total_movement = 0
+	total_movement_x = 0
+	total_movement_y = 0
 
 	def add(self, image: InputImage):
 		self.slice_keep = image.width()
@@ -39,23 +40,26 @@ class Stitcher:
 		image.create_focus_map(25)
 
 		if len(self.images):
-			movement = calculate_movement(self.images[-1], image, self.coarse_window)
+			movement_x, movement_y = calculate_movement(self.images[-1], image, self.coarse_window)
 
 			# ignore images with very minimal movement
-			if movement < 5:
+			if movement_x < 5:
 				return
 
-			self.total_movement += movement
+			self.total_movement_x += movement_x
+			self.total_movement_y += movement_y
 
-			image.movement = movement
-			image.offset_x = self.total_movement
+			image.movement = movement_x
+			image.offset_x = self.total_movement_x
+			image.shift = self.total_movement_y
 		else:
 			image.movement = 0
+			image.shift = 0
 			image.offset_x = 0
 
 		self.images.append(image)
 
-		print('*', self.total_movement)
+		print('*', self.total_movement_x)
 
 	def render(self, session):
 		print('RENDER', len(self.images))
@@ -71,4 +75,4 @@ class Stitcher:
 			image.offset_x -= shift
 
 		self.images = [image for image in self.images if image.offset_x >= 0]
-		self.total_movement -= shift
+		self.total_movement_x -= shift

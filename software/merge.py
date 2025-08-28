@@ -4,6 +4,7 @@ def merge_images(images):
 	heights = [img.rotated.shape[0] for img in images]
 	widths  = [img.rotated.shape[1] for img in images]
 	offsets = [int(img.offset_x) for img in images]
+	shifts = [int(img.shift) for img in images]
 
 	H = max(heights)
 	W = max(o + w for o, w in zip(offsets, widths))
@@ -15,7 +16,7 @@ def merge_images(images):
 	alpha_sum = np.zeros((H, W, 1), dtype=np.float32)  # alpha weighted
 	weight_sum = np.zeros((H, W, 1), dtype=np.float32) # scalar weights
 
-	for img, off in zip(images, offsets):
+	for img, off, shift in zip(images, offsets, shifts):
 		src = img.rotated
 		mask = img.focus_map
 		h, w = src.shape[:2]
@@ -29,11 +30,12 @@ def merge_images(images):
 		sx1 = sx0 + (x1 - x0)
 
 		# --- Clip vertically (top-aligned) ---
-		y0, sy0 = 0, 0
-		y1 = min(h, H)
-		sy1 = y1 - y0
+		y0 = max(shift, 0)
+		y1 = min(shift + h, H)
 		if y1 <= y0:
 			continue
+		sy0 = 0 if shift >= 0 else -shift
+		sy1 = sy0 + (y1 - y0)
 
 		# Extract ROIs
 		src_roi  = src[sy0:sy1, sx0:sx1].astype(np.float32)

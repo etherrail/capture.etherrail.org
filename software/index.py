@@ -25,7 +25,7 @@ while True:
 		if image.valid_flash_brightness(25, 5, 200, 247):
 			stitcher.add(image)
 
-			if stitcher.total_movement > 10000:
+			if stitcher.total_movement_x > 10000:
 				stitcher.render(session)
 		else:
 			print('invalid brightness of image: ' + file + ', brightness')
