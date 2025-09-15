@@ -8,6 +8,7 @@ from input_image import InputImage
 from movement import calculate_movement
 from merge import merge_images
 from itertools import combinations
+from filter import apply_filter
 
 class Stitcher:
 	session = str(uuid4())
@@ -68,6 +69,9 @@ class Stitcher:
 		# merge all images
 		merged = merge_images(self.images)
 		cv2.imwrite('stitched-' + self.session + '-' + str(self.slice_index) + '.png', merged)
+
+		filtered = apply_filter(merged)
+		cv2.imwrite('stitched-' + self.session + '-' + str(self.slice_index) + '-filtered.png', filtered)
 
 		shift = self.images[-1].offset_x
 
