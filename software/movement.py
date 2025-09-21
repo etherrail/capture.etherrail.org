@@ -13,4 +13,4 @@ def calculate_movement(start: InputImage, end: InputImage, coarse_window):
 
 	dx, dy = calculate_movement_phase_correlation(start.edge_mask, end.edge_mask)
 
-	return int(-dx * coarse_window)
+	return int(-dx * coarse_window), int(-dy * coarse_window)
