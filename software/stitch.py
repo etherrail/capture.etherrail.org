@@ -30,11 +30,12 @@ class Stitcher:
 	total_movement_x = 0
 	total_movement_y = 0
 
+	max_vertical_shift = 20 # ignore vertical shift if over this threshold
+
 	def add(self, image: InputImage):
 		self.slice_keep = image.width()
 
-		# image.rotate(self.rotation, self.cutoff)
-		image.rotated = image.source
+		image.rotate(self.rotation, self.cutoff)
 
 		image.create_edge_mask(self.coarse_window)
 		image.create_contrast_map()
@@ -42,10 +43,14 @@ class Stitcher:
 
 		if len(self.images):
 			movement_x, movement_y = calculate_movement(self.images[-1], image, self.coarse_window)
+			print('*', movement_x, movement_y, self.total_movement_x)
 
 			# ignore images with very minimal movement
 			if movement_x < 5:
 				return
+
+			if abs(movement_y) > self.max_vertical_shift:
+				movement_y = 0
 
 			self.total_movement_x += movement_x
 			self.total_movement_y += movement_y
@@ -60,8 +65,6 @@ class Stitcher:
 
 		self.images.append(image)
 
-		print('*', self.total_movement_x)
-
 	def render(self, session):
 		print('RENDER', len(self.images))
 		self.slice_index += 1
@@ -70,9 +73,6 @@ class Stitcher:
 		merged = merge_images(self.images)
 		cv2.imwrite('stitched-' + self.session + '-' + str(self.slice_index) + '.png', merged)
 
-		filtered = apply_filter(merged)
-		cv2.imwrite('stitched-' + self.session + '-' + str(self.slice_index) + '-filtered.png', filtered)
-
 		shift = self.images[-1].offset_x
 
 		for image in self.images:
@@ -80,3 +80,5 @@ class Stitcher:
 
 		self.images = [image for image in self.images if image.offset_x >= 0]
 		self.total_movement_x -= shift
+
+		return merged

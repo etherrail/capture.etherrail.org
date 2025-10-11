@@ -8,7 +8,6 @@ class InputImage:
 	offset_x = 0
 
 	def __init__(self, buffer):
-		print(buffer)
 		self.source = cv2.cvtColor(buffer, cv2.COLOR_BGR2BGRA)
 
 	# valid flashes are in a range of brigthness values
@@ -18,14 +17,9 @@ class InputImage:
 		h, w, _ = self.source.shape
 
 		grayscale = cv2.cvtColor(self.source, cv2.COLOR_BGR2GRAY)
-		brightness = self.brightness(grayscale, offset, offset, field)
+		brightness = self.brightness(grayscale, w - offset, h - offset, field)
 
-		if brightness > min and brightness < max:
-			return True
-
-		# the pantographs sometimes touch the top edge
-		# test the left pixel too, if it is in range, the image is valid
-		brightness = self.brightness(grayscale, offset, h - offset, field)
+		print(brightness)
 
 		if brightness > min and brightness < max:
 			return True
