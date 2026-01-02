@@ -15,14 +15,14 @@ class Stitcher:
 
 	# base rotation to align to track
 	# will rotate back to isometric view when complete
-	rotation = 271.2
-	cutoff = 55
+	rotation = 270 - 0.25
+	cutoff = 10
 
 	# size of the coarse window for sobbel checks
 	# the sobbel field is half of this
 	coarse_window = 6
 
-	slice = 10000 # target width of a slice (will be a bit bigger)
+	slice = 100000 # target width of a slice (will be a bit bigger)
 	slice_index = 0 # number of current slice
 	slice_keep = 0 # will be set to width of image. how much will be kept of the last slice
 
@@ -81,4 +81,6 @@ class Stitcher:
 		self.images = [image for image in self.images if image.offset_x >= 0]
 		self.total_movement_x -= shift
 
-		return merged
+		filtered = apply_filter(merged)
+
+		return filtered

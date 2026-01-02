@@ -14,14 +14,15 @@ frames = [int(re.search(r"\d+", file).group()) for file in listdir('input') if f
 frames.sort()
 
 for frame in frames:
-		image = InputImage(cv2.imread('input/frame-' + str(frame) + '.bmp'))
+	print(frame)
+	image = InputImage(cv2.imread('input/frame-' + str(frame) + '.bmp'))
 
-		# if image.valid_flash_brightness(25, 5, 170, 200):
+	if image.valid_flash_brightness(25, 5, 200, 250):
 		stitcher.add(image)
 
 stitched = stitcher.render('')
 
-location = 'https://kalkbreite.com/capture/' + tag + '/' + ('reverse' if direction == 'r' else 'forward')
+location = 'https://kalkbreite.com/capture/' + tag + '/' + direction
 print('posting to ' + location)
 
 success, image = cv2.imencode('.png', stitched)
