@@ -42,8 +42,8 @@ def merge_images(images):
 		mask_roi = mask[sy0:sy1, sx0:sx1].astype(np.float32)
 
 		bgr = src_roi[..., :3]          # (..,3) float32 0..255
-		a   = src_roi[..., 3:4] / 255.0 # (..,1) 0..1
-		m   = (mask_roi / 255.0)[..., None]  # (..,1) 0..1
+		a = src_roi[..., 3:4] / 255.0 # (..,1) 0..1
+		m = (mask_roi / 255.0)[..., None]  # (..,1) 0..1
 
 		# Weight = focus * alpha  (so transparent areas contribute less)
 		wgt = m * a

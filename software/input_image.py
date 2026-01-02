@@ -19,16 +19,12 @@ class InputImage:
 		grayscale = cv2.cvtColor(self.source, cv2.COLOR_BGR2GRAY)
 		brightness = self.brightness(grayscale, offset, offset, field)
 
-		print(brightness)
-
 		if brightness > min and brightness < max:
 			return True
 
 		# sometimes the pantograph might overlap
 		grayscale = cv2.cvtColor(self.source, cv2.COLOR_BGR2GRAY)
 		brightness = self.brightness(grayscale, offset, h - offset, field)
-
-		print(brightness)
 
 		if brightness > min and brightness < max:
 			return True
