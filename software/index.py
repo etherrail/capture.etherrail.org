@@ -7,6 +7,8 @@ import re
 import numpy as np
 from subprocess import check_output
 
+upload_location = 'http://localhost:8004/capture' # 'https://kalkbreite.com/capture'
+
 stitcher = Stitcher()
 
 frames = [int(re.search(r"\d+", file).group()) for file in listdir('input') if file.endswith('.bmp')]
@@ -28,6 +30,8 @@ offset_y = 0
 
 for frame in frames:
 	path = 'input/frame-' + str(frame) + '.bmp'
+	print('[image] importing ' + path + ', offset = ' + str(stitcher.total_movement_x))
+
 	image = InputImage(cv2.imread(path))
 
 	if image.valid_flash_brightness(25, 5, 200, 250):
@@ -38,12 +42,12 @@ for frame in frames:
 			movement_x = base_offset
 			movement_y = stitcher.total_movement_y
 
-			print('movement_x = ' + str(movement_x) + ' movement_y = ' + str(movement_y), ' offset_x = ' + str(stitcher.images[-1].offset_x) + ' base_offset = ' + str(base_offset))
-
 			parts.append([offset_x, offset_y, stitcher.render('')])
 
 			offset_x = movement_x
 			offset_y = movement_y
+	else:
+		print('[image] invalid flash brightness')
 
 # render last image
 parts.append([offset_x, offset_y, stitcher.render('')])
@@ -69,6 +73,8 @@ for x, y, image in parts:
 canvas_w = max_x - min_x
 canvas_h = max_y - min_y
 
+print('[merge] merge final image, width = ' + str(canvas_w) + ', height = ' + str(canvas_h))
+
 canvas = np.zeros((canvas_h, canvas_w, 4), dtype=np.uint8)
 canvas[:] = np.array((0, 0, 0, 0), dtype=np.uint8)
 
@@ -86,9 +92,10 @@ for x, y, src in norm:
 	dst_roi[..., 0:3] = (alpha * src[..., 0:3] + inv * dst_roi[..., 0:3]).astype(np.uint8)
 	dst_roi[..., 3:4] = (np.clip(src[..., 3:4].astype(np.float32) + inv * dst_roi[..., 3:4].astype(np.float32), 0, 255)).astype(np.uint8)
 
-location = 'https://kalkbreite.com/capture'
-print('posting to ' + location)
-
 success, image = cv2.imencode('.png', canvas)
-post(location, data=image.tobytes())
-print('posted')
+print('[upload] posting to ' + upload_location + ', size = ' + str(len(image)))
+
+post(upload_location, data=image.tobytes())
+print('[upload] complete')
+
+cv2.imwrite('stitched.png', canvas)

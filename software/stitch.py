@@ -41,8 +41,6 @@ class Stitcher:
 		image.create_contrast_map()
 		image.create_focus_map(25)
 
-		self.images.append(image)
-
 		if len(self.images):
 			movement_x, movement_y = calculate_movement(self.images[-1], image, self.coarse_window)
 
@@ -60,18 +58,20 @@ class Stitcher:
 			image.offset_x = self.total_movement_x
 			image.shift = self.total_movement_y
 
+			self.images.append(image)
+
 			return movement_x, movement_y
 		else:
 			image.movement = 0
 			image.shift = 0
 			image.offset_x = 0
 
+			self.images.append(image)
+
 			return 0, 0
 
-
-
 	def render(self, session):
-		print('RENDER', len(self.images))
+		print('[stitch] render ' + str(len(self.images)) + ' images, slice = ' + str(self.slice_index))
 		self.slice_index += 1
 
 		# merge all images
