@@ -29,6 +29,8 @@ class InputImage:
 		if brightness > min and brightness < max:
 			return True
 
+		print('[flash] ' + str(brightness) + ' > ' + str(max) + ' or < ' + str(min))
+
 		return False
 
 	def brightness(self, grayscale, x, y, field):

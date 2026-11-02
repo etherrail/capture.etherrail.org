@@ -15,7 +15,7 @@ class Stitcher:
 
 	# base rotation to align to track
 	# will rotate back to isometric view when complete
-	rotation = 270 - 0.25
+	rotation = 270 - 0.125
 	cutoff = 10
 
 	# size of the coarse window for sobbel checks

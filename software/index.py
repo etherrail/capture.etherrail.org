@@ -7,7 +7,7 @@ import re
 import numpy as np
 from subprocess import check_output
 
-upload_location = 'http://localhost:8004/capture' # 'https://kalkbreite.com/capture'
+upload_location = 'https://kalkbreite.com/capture'
 
 stitcher = Stitcher()
 
@@ -34,10 +34,10 @@ for frame in frames:
 
 	image = InputImage(cv2.imread(path))
 
-	if image.valid_flash_brightness(25, 5, 200, 250):
+	if image.valid_flash_brightness(15, 5, 140, 200):
 		stitcher.add(image)
 
-		if stitcher.total_movement_x > 10000:
+		if stitcher.total_movement_x > stitcher.slice:
 			base_offset += stitcher.images[-1].offset_x
 			movement_x = base_offset
 			movement_y = stitcher.total_movement_y
@@ -92,10 +92,10 @@ for x, y, src in norm:
 	dst_roi[..., 0:3] = (alpha * src[..., 0:3] + inv * dst_roi[..., 0:3]).astype(np.uint8)
 	dst_roi[..., 3:4] = (np.clip(src[..., 3:4].astype(np.float32) + inv * dst_roi[..., 3:4].astype(np.float32), 0, 255)).astype(np.uint8)
 
+cv2.imwrite('stitched.png', canvas)
+
 success, image = cv2.imencode('.png', canvas)
 print('[upload] posting to ' + upload_location + ', size = ' + str(len(image)))
 
 post(upload_location, data=image.tobytes())
 print('[upload] complete')
-
-cv2.imwrite('stitched.png', canvas)
