@@ -6,6 +6,7 @@ from input_image import InputImage
 from movement import movement_image, calculate_movement
 from flatfield import estimate_flatfield, flatfield_scale
 from filter import apply_filter
+from background import Background
 
 # frames are processed in two passes
 # 1. analyze every frame: flash level, movement and the illumination of the flash
@@ -47,6 +48,7 @@ class Stitcher:
 		self.frames = []
 
 		self.previous_movement_images = []
+		self.previous_small = None
 
 	# pass 1
 	def add(self, path):
@@ -57,15 +59,20 @@ class Stitcher:
 		reference = image.reference_brightness(self.reference_offset, self.reference_field)
 		current = movement_image(gray, max(max(reference), 1))
 
+		small = cv2.resize(gray, None, fx=1 / flatfield_scale, fy=1 / flatfield_scale, interpolation=cv2.INTER_AREA)
+
 		frame = {
 			'path': path,
 			'reference': reference,
+
+			# identical to the previous frame (used to find the empty frames)
+			'still': self.previous_small is not None and np.abs(small - self.previous_small).mean() < Background.still_difference,
 
 			# movement from the previous and the second previous frame
 			'movement': [self.measure(previous, current) for previous in self.previous_movement_images],
 
 			# small images for the flat field estimation
-			'small': cv2.resize(gray, None, fx=1 / flatfield_scale, fy=1 / flatfield_scale, interpolation=cv2.INTER_AREA),
+			'small': small,
 			'small_max': cv2.resize(image.rotated.max(axis=2), None, fx=1 / flatfield_scale, fy=1 / flatfield_scale, interpolation=cv2.INTER_AREA)
 		}
 
@@ -73,6 +80,7 @@ class Stitcher:
 		self.size = image.rotated.shape[:2]
 
 		self.previous_movement_images = [current] + self.previous_movement_images[:1]
+		self.previous_small = small
 
 	def measure(self, previous, current):
 		movement_x, movement_y = calculate_movement(previous, current)
@@ -154,6 +162,8 @@ class Stitcher:
 		print('[stitch] estimating flash illumination from ' + str(len(frames)) + ' frames')
 		illumination = estimate_flatfield([frame for frame in frames if frame['type'] == 'normal'], self.size)
 
+		background = Background(self.frames, self.rotation, self.cutoff)
+
 		min_y = min(frame['y'] for frame in frames)
 		max_y = max(frame['y'] for frame in frames)
 		max_x = max(frame['x'] for frame in frames)
@@ -164,6 +174,7 @@ class Stitcher:
 		print('[stitch] render ' + str(len(frames)) + ' frames, width = ' + str(canvas_w) + ', height = ' + str(canvas_h))
 
 		canvas = np.zeros((canvas_h, canvas_w, 4), dtype=np.uint8)
+		coverage = np.zeros((canvas_h, canvas_w), dtype=np.uint8)
 		taper = self.taper(height, width)
 
 		# blending happens in a buffer that moves along with the frames
@@ -172,6 +183,7 @@ class Stitcher:
 		buffer_start = 0
 		color_sum = np.zeros((canvas_h, buffer_w, 3), dtype=np.float32)
 		weight_sum = np.zeros((canvas_h, buffer_w), dtype=np.float32)
+		likeness_sum = np.zeros((canvas_h, buffer_w), dtype=np.float32)
 
 		def flush(end):
 			end = min(end, canvas_w, buffer_start + buffer_w)
@@ -184,6 +196,9 @@ class Stitcher:
 
 			canvas[:, buffer_start:end, :3] = np.clip(color, 0, 255).astype(np.uint8)
 			canvas[:, buffer_start:end, 3] = covered[..., 0] * 255
+
+			likeness = np.divide(likeness_sum[:, :columns], weights[..., 0], out=np.zeros_like(likeness_sum[:, :columns]), where=covered[..., 0])
+			coverage[:, buffer_start:end] = np.clip(likeness * 255, 0, 255).astype(np.uint8)
 
 			return columns
 
@@ -198,10 +213,9 @@ class Stitcher:
 				columns = min(flush(left), buffer_w)
 				keep = buffer_w - columns
 
-				color_sum[:, :keep] = color_sum[:, columns:]
-				weight_sum[:, :keep] = weight_sum[:, columns:]
-				color_sum[:, keep:] = 0
-				weight_sum[:, keep:] = 0
+				for buffer in (color_sum, weight_sum, likeness_sum):
+					buffer[:, :keep] = buffer[:, columns:]
+					buffer[:, keep:] = 0
 
 				buffer_start = left
 
@@ -209,16 +223,21 @@ class Stitcher:
 			image.rotate(self.rotation, self.cutoff, x - left, y - top)
 
 			color, weight = self.prepare(image.rotated, frame, illumination, taper)
+			likeness = background.likeness(image.rotated, frame['level'])
 
 			bx = left - buffer_start
 			color_sum[top:top + height, bx:bx + width] += color * weight[..., None]
 			weight_sum[top:top + height, bx:bx + width] += weight
 
+			if likeness is not None:
+				likeness_sum[top:top + height, bx:bx + width] += likeness * weight
+
 		flush(canvas_w)
 
 		print('[stitch] applying filter')
+		canvas = self.filter(canvas)
 
-		return self.filter(canvas)
+		return background.apply(canvas, coverage)
 
 	# correct the brightness of a frame and calculate how much each pixel should contribute
 	def prepare(self, rotated, frame, illumination, taper):
