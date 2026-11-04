@@ -44,6 +44,11 @@ class Stitcher:
 	sharpness_power = 2
 	sharpness_floor = 10
 
+	# uncovered pixels at the top and bottom are filled in and blurred with this sigma
+	# the blur fades in over extend_fade pixels from the last covered pixel
+	extend_blur = 8
+	extend_fade = 24
+
 	def __init__(self):
 		self.frames = []
 
@@ -234,6 +239,8 @@ class Stitcher:
 
 		flush(canvas_w)
 
+		self.extend(canvas, coverage)
+
 		print('[stitch] applying filter')
 		canvas = self.filter(canvas)
 
@@ -269,6 +276,61 @@ class Stitcher:
 		vertical = np.clip((np.minimum(np.arange(height), np.arange(height)[::-1]) + 0.5) / fade, 0, 1)
 
 		return (vertical[:, None] * horizontal[None, :]).astype(np.float32)
+
+	# vertical movement leaves uncovered pixels at the top and bottom
+	# they are filled with the nearest covered pixel of their column, blurred more the further away they are
+	# covered pixels are never changed
+	def extend(self, canvas, coverage):
+		strip = 4096
+		margin = 3 * self.extend_blur
+		height, width = coverage.shape
+		rows = np.arange(height)[:, None]
+
+		for start in range(0, width, strip):
+			end = min(start + strip, width)
+
+			a = max(start - margin, 0)
+			b = min(end + margin, width)
+
+			covered = canvas[:, a:b, 3] > 0
+
+			if covered[:, start - a:end - a].all():
+				continue
+
+			has_pixels = covered.any(axis=0)
+
+			if not has_pixels.any():
+				continue
+
+			# columns without any pixel (the rounded up last column) copy the nearest column with pixels
+			with_pixels = np.where(has_pixels)[0]
+			nearest = with_pixels[np.clip(np.searchsorted(with_pixels, np.arange(b - a)), 0, len(with_pixels) - 1)]
+			before = with_pixels[np.clip(np.searchsorted(with_pixels, np.arange(b - a)) - 1, 0, len(with_pixels) - 1)]
+			nearest = np.where(np.abs(before - np.arange(b - a)) < np.abs(nearest - np.arange(b - a)), before, nearest)
+
+			first = np.argmax(covered, axis=0)[nearest]
+			last = (height - 1 - np.argmax(covered[::-1], axis=0))[nearest]
+
+			source = np.clip(rows, first[None, :], last[None, :])
+			columns = nearest[None, :]
+
+			filled = canvas[:, a:b][source, columns]
+			filled_coverage = coverage[:, a:b][source, columns]
+
+			distance = np.maximum(first[None, :] - rows, rows - last[None, :]).clip(0).astype(np.float32)
+
+			blurred = cv2.GaussianBlur(filled[..., :3].astype(np.float32), (0, 0), self.extend_blur)
+			amount = np.clip(distance / self.extend_fade, 0, 1)[..., None]
+
+			color = filled[..., :3] * (1 - amount) + blurred * amount
+
+			# only write the strip itself, the margin is only there for the blur
+			part = slice(start - a, end - a)
+			empty = ~covered[:, part]
+
+			canvas[:, start:end, :3][empty] = np.clip(color[:, part], 0, 255).astype(np.uint8)[empty]
+			canvas[:, start:end, 3][empty] = 255
+			coverage[:, start:end][empty] = filled_coverage[:, part][empty]
 
 	# the filter is applied in strips to limit memory usage
 	def filter(self, canvas):
