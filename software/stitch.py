@@ -3,7 +3,7 @@ import numpy as np
 from uuid import uuid4
 
 from input_image import InputImage
-from movement import movement_image, calculate_movement
+from movement import movement_image, movement_candidates
 from flatfield import estimate_flatfield, flatfield_scale
 from filter import apply_filter
 from background import Background
@@ -37,6 +37,24 @@ class Stitcher:
 	min_render_step = 5
 
 	max_vertical_shift = 20 # ignore vertical shift if over this threshold
+
+	# trains only move in one direction (top to bottom in the sensor, positive x after the rotation)
+	# a stalling locomotive can rattle back a bit, anything further back is a mismatch
+	direction = 1
+	max_backward = 10
+
+	# the speed is mostly constant, so candidates are weighted by how far they deviate from the expected movement
+	# cost = alignment error relative to the best candidate
+	#      + speed_weight * deviation / (expected speed + speed_floor)
+	#      + peak_weight * ln(strongest moving peak / peak)
+	# the frame interval jitters, so a much stronger peak has to be able to beat the expected speed
+	# the static peak is always strong while the train is only partially visible, so it is only judged by error and speed
+	# the expected movement is the median of the last speed_history movements (per frame)
+	# below speed_floor the train is starting or arriving and the speed is not used
+	speed_weight = 1
+	speed_floor = 20
+	speed_history = 3
+	peak_weight = 0.5
 
 	# sharpness weighting
 	# higher sharpness_power picks the sharpest frame more aggressively
@@ -73,7 +91,7 @@ class Stitcher:
 			# identical to the previous frame (used to find the empty frames)
 			'still': self.previous_small is not None and np.abs(small - self.previous_small).mean() < Background.still_difference,
 
-			# movement from the previous and the second previous frame
+			# movement candidates from the previous and the second previous frame
 			'movement': [self.measure(previous, current) for previous in self.previous_movement_images],
 
 			# small images for the flat field estimation
@@ -88,12 +106,13 @@ class Stitcher:
 		self.previous_small = small
 
 	def measure(self, previous, current):
-		movement_x, movement_y = calculate_movement(previous, current)
+		candidates = movement_candidates(previous, current)
 
-		if abs(movement_y) > self.max_vertical_shift:
-			movement_y = 0
+		for candidate in candidates:
+			if abs(candidate['y']) > self.max_vertical_shift:
+				candidate['y'] = 0
 
-		return movement_x, movement_y
+		return candidates
 
 	def classify(self):
 		references = np.array([frame['reference'] for frame in self.frames])
@@ -120,6 +139,7 @@ class Stitcher:
 		x = 0
 		y = 0
 		last = None
+		history = []
 
 		for index, frame in enumerate(self.frames):
 			frame['usable'] = frame['type'] in ('normal', 'dark')
@@ -128,19 +148,23 @@ class Stitcher:
 				continue
 
 			if last is not None:
-				if last == index - 1:
-					movement_x, movement_y = frame['movement'][0]
-				elif last == index - 2 and len(frame['movement']) > 1:
-					# skip over a double exposure
-					movement_x, movement_y = frame['movement'][1]
+				# frames in between (double exposures) are skipped, the movement spans all of them
+				gap = index - last
+				expected = self.expected_movement(history)
+
+				if gap <= len(frame['movement']):
+					movement_x, movement_y = self.pick(frame, frame['movement'][gap - 1], None if expected is None else expected * gap)
+				elif expected is not None:
+					print('[stitch] no reference frame for ' + frame['path'] + ', assuming constant speed')
+					movement_x, movement_y = expected * gap, 0
 				else:
 					print('[stitch] no reference frame for ' + frame['path'] + ', assuming standstill')
 					movement_x, movement_y = 0, 0
 
+				history.append(movement_x / gap)
+
 				x += movement_x
 				y += movement_y
-
-				print('[movement] ' + frame['path'] + ' x = ' + str(round(movement_x, 1)) + ', y = ' + str(round(movement_y, 1)))
 
 			frame['x'] = x
 			frame['y'] = y
@@ -155,6 +179,57 @@ class Stitcher:
 
 			if frame['render']:
 				last_x = frame['x']
+
+	# expected movement per frame along the track, None if the train is not moving steadily
+	def expected_movement(self, history):
+		if not len(history):
+			return None
+
+		expected = float(np.median(history[-self.speed_history:]))
+
+		if abs(expected) < self.speed_floor:
+			return None
+
+		return expected
+
+	# choose the movement candidate that aligns best and is closest to the expected movement
+	def pick(self, frame, candidates, expected):
+		for candidate in candidates:
+			candidate['allowed'] = candidate['x'] * self.direction >= -self.max_backward and np.isfinite(candidate['error'])
+
+		allowed = [candidate for candidate in candidates if candidate['allowed']]
+		best_error = max(min((candidate['error'] for candidate in allowed), default=0), 1e-6)
+		best_peak = max((candidate['strength'] for candidate in allowed if not candidate['static']), default=1)
+
+		for candidate in candidates:
+			candidate['cost'] = np.inf
+
+			if candidate['allowed']:
+				candidate['cost'] = candidate['error'] / best_error
+
+				if expected is not None:
+					candidate['cost'] += self.speed_weight * abs(candidate['x'] - expected) / (abs(expected) + self.speed_floor)
+
+				if not candidate['static']:
+					candidate['cost'] += self.peak_weight * np.log(best_peak / max(candidate['strength'], 1e-6))
+
+		picked = min(allowed, key=lambda candidate: candidate['cost'], default=None)
+
+		print('[movement] ' + frame['path'] + ', expected x = ' + ('-' if expected is None else str(round(expected, 1))))
+
+		for candidate in candidates:
+			print('[movement]   ' + ('> ' if candidate is picked else '  ') + 'x = ' + str(round(candidate['x'], 1)).rjust(7) + ', y = ' + str(round(candidate['y'], 1)).rjust(5) + ', peak = ' + str(round(candidate['strength'], 3)).ljust(5) + ', error = ' + str(round(candidate['error'], 2)).ljust(5) + ', cost = ' + str(round(candidate['cost'], 2)) + (' (still)' if candidate['still'] else ' (static)' if candidate['static'] else '') + ('' if candidate['allowed'] else ' (backward)' if np.isfinite(candidate['error']) else ' (no overlap)'))
+
+		if picked is None:
+			fallback = 0 if expected is None else expected
+
+			print('[movement]   no usable candidate, using x = ' + str(round(fallback, 1)))
+
+			return fallback, 0
+
+		print('[movement]   picked x = ' + str(round(picked['x'], 1)) + ', y = ' + str(round(picked['y'], 1)) + ', deviation = ' + ('-' if expected is None else str(round(picked['x'] - expected, 1))))
+
+		return picked['x'], picked['y']
 
 	# pass 2
 	def render(self):
