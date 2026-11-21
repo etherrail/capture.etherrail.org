@@ -3,6 +3,7 @@ from datetime import datetime
 from queue import Queue
 from threading import Thread, Lock
 from select import select
+from time import sleep
 import sys
 import tty
 import termios
@@ -11,6 +12,7 @@ import mvsdk
 import cv2
 from stitch import Stitcher
 from upload import upload
+from light import Light
 
 # one pass of a train
 # frames are saved and analyzed while they come in (pass 1 of the stitcher)
@@ -79,10 +81,14 @@ class Capture:
 	exposure = 20 # ms
 	exposure_step = 1 # ms
 
-	def __init__(self):
+	# time for the light to reach full brightness before the camera starts
+	light_delay = 1 # s
+
+	def __init__(self, light = None):
 		self.session = None
 		self.sessions = []
 		self.uploading = True
+		self.light = light
 
 		# held while a frame is saved, so a session is never stopped in the middle of a frame
 		self.lock = Lock()
@@ -165,6 +171,10 @@ class Capture:
 		self.session = Session(self.uploading)
 		self.sessions.append(self.session)
 
+		if self.light is not None:
+			self.light.set(True)
+			sleep(self.light_delay)
+
 		mvsdk.CameraPlay(self.handle)
 		print('[session] recording ' + self.session.directory)
 
@@ -177,6 +187,9 @@ class Capture:
 		with self.lock:
 			session = self.session
 			self.session = None
+
+		if self.light is not None:
+			self.light.set(False)
 
 		print('[session] stopped ' + session.name + ' after ' + str(session.frame_count) + ' frames')
 		session.finish()
@@ -224,8 +237,24 @@ def help():
 	print('  q               quit (finishes stitching first)')
 	print('')
 
+# usage: capture.py [--light <shelly address>]
+def argument(name):
+	for index, value in enumerate(sys.argv):
+		if value == name and index + 1 < len(sys.argv):
+			return sys.argv[index + 1]
+
+		if value.startswith(name + '='):
+			return value[len(name) + 1:]
+
+	return None
+
 if __name__ == '__main__':
-	capture = Capture()
+	light_address = argument('--light')
+
+	if light_address is None:
+		print('[light] no --light address given, light is not switched')
+
+	capture = Capture(Light(light_address) if light_address else None)
 	capture.connect()
 
 	help()
